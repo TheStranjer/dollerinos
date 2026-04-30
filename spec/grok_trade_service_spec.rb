@@ -2,6 +2,49 @@ require_relative "../spec/spec_helper"
 require_relative "../lib/grok_trade_service"
 
 describe Trading::GrokTradeService do
+  describe "Position struct" do
+    it "has correct attributes" do
+      position = described_class::Position.new(
+        type: "stock",
+        symbol: "AAPL",
+        quantity: 100,
+        position_type: "long"
+      )
+      expect(position.type).to eq("stock")
+      expect(position.symbol).to eq("AAPL")
+      expect(position.quantity).to eq(100)
+      expect(position.position_type).to eq("long")
+    end
+
+    it "supports option positions with strike and expiration" do
+      position = described_class::Position.new(
+        type: "option",
+        symbol: "TSLA",
+        quantity: 5,
+        position_type: "long",
+        strike_price: 250.0,
+        expiration_date: "2026-05-15",
+        option_type: "call"
+      )
+      expect(position.type).to eq("option")
+      expect(position.symbol).to eq("TSLA")
+      expect(position.quantity).to eq(5)
+      expect(position.strike_price).to eq(250.0)
+      expect(position.expiration_date).to eq("2026-05-15")
+      expect(position.option_type).to eq("call")
+    end
+
+    it "supports short positions" do
+      position = described_class::Position.new(
+        type: "stock",
+        symbol: "SPY",
+        quantity: 50,
+        position_type: "short"
+      )
+      expect(position.position_type).to eq("short")
+    end
+  end
+
   describe "Trade struct" do
     describe "#valid?" do
       it "returns true for valid stock trade" do
@@ -193,6 +236,26 @@ describe Trading::GrokTradeService do
       custom_time = Time.parse("2026-01-01 12:00:00")
       service = described_class.new(liquidity_amount: 5000, now: custom_time)
       expect(service.instance_variable_get(:@now)).to eq(custom_time)
+    end
+
+    it "stores empty positions by default" do
+      service = described_class.new(liquidity_amount: 5000)
+      expect(service.instance_variable_get(:@positions)).to eq([])
+    end
+
+    it "accepts positions argument and stores it" do
+      positions = [
+        described_class::Position.new(type: "stock", symbol: "AAPL", quantity: 100, position_type: "long")
+      ]
+      service = described_class.new(liquidity_amount: 5000, positions: positions)
+      expect(service.instance_variable_get(:@positions)).to eq(positions)
+    end
+
+    it "converts positions to array if single position is passed" do
+      position = described_class::Position.new(type: "stock", symbol: "AAPL", quantity: 100, position_type: "long")
+      service = described_class.new(liquidity_amount: 5000, positions: position)
+      expect(service.instance_variable_get(:@positions)).to be_an(Array)
+      expect(service.instance_variable_get(:@positions).size).to eq(1)
     end
 
     it "loads API keys from environment variables" do
@@ -625,6 +688,74 @@ describe Trading::GrokTradeService do
     it "mentions market research" do
       prompt = service.send(:user_prompt)
       expect(prompt.downcase).to include("trend")
+    end
+
+    it "does not include position section when no positions" do
+      prompt = service.send(:user_prompt)
+      expect(prompt).not_to include("current positions")
+    end
+
+    it "includes position section when stock positions are provided" do
+      positions = [
+        described_class::Position.new(type: "stock", symbol: "AAPL", quantity: 100, position_type: "long")
+      ]
+      service_with_positions = described_class.new(
+        liquidity_amount: 10000,
+        positions: positions,
+        xai_api_key: "test_key",
+        hellthread_api_key: "ht_key",
+        unusual_whales_api_key: "uw_key"
+      )
+      prompt = service_with_positions.send(:user_prompt)
+      expect(prompt).to include("current positions")
+      expect(prompt).to include("100 shares of AAPL")
+      expect(prompt).to include("long")
+    end
+
+    it "includes position section when option positions are provided" do
+      positions = [
+        described_class::Position.new(
+          type: "option",
+          symbol: "TSLA",
+          quantity: 5,
+          position_type: "long",
+          strike_price: 250.0,
+          expiration_date: "2026-05-15",
+          option_type: "call"
+        )
+      ]
+      service_with_positions = described_class.new(
+        liquidity_amount: 10000,
+        positions: positions,
+        xai_api_key: "test_key",
+        hellthread_api_key: "ht_key",
+        unusual_whales_api_key: "uw_key"
+      )
+      prompt = service_with_positions.send(:user_prompt)
+      expect(prompt).to include("current positions")
+      expect(prompt).to include("5 contracts TSLA")
+      expect(prompt).to include("250.0")
+      expect(prompt).to include("2026-05-15")
+      expect(prompt).to include("long")
+      expect(prompt).to include("call")
+    end
+
+    it "includes multiple positions in prompt" do
+      positions = [
+        described_class::Position.new(type: "stock", symbol: "AAPL", quantity: 100, position_type: "long"),
+        described_class::Position.new(type: "stock", symbol: "SPY", quantity: 50, position_type: "short")
+      ]
+      service_with_positions = described_class.new(
+        liquidity_amount: 10000,
+        positions: positions,
+        xai_api_key: "test_key",
+        hellthread_api_key: "ht_key",
+        unusual_whales_api_key: "uw_key"
+      )
+      prompt = service_with_positions.send(:user_prompt)
+      expect(prompt).to include("100 shares of AAPL")
+      expect(prompt).to include("50 shares of SPY")
+      expect(prompt).to include("short")
     end
   end
 

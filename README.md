@@ -193,6 +193,100 @@ Each trade recommendation includes:
 - `confidence`: 0-100 confidence level
 - `reasoning`: Explanation for the recommendation
 
+## Current Positions Format
+
+You can provide your current holdings to the service so that Grok can consider selling, rolling, or managing existing positions. Positions are passed to the `GrokTradeService` as JSON.
+
+### Position JSON Format
+
+```json
+[
+  {
+    "type": "stock",
+    "symbol": "AAPL",
+    "quantity": 100,
+    "position_type": "long"
+  },
+  {
+    "type": "option",
+    "symbol": "TSLA",
+    "quantity": 5,
+    "position_type": "long",
+    "strike_price": 250.0,
+    "expiration_date": "2026-05-15",
+    "option_type": "call"
+  },
+  {
+    "type": "stock",
+    "symbol": "SPY",
+    "quantity": 50,
+    "position_type": "short"
+  },
+  {
+    "type": "option",
+    "symbol": "QQQ",
+    "quantity": 10,
+    "position_type": "short",
+    "strike_price": 380.0,
+    "expiration_date": "2026-06-20",
+    "option_type": "put"
+  }
+]
+```
+
+### Field Descriptions
+
+**For Stock Positions:**
+- `type`: "stock"
+- `symbol`: Stock ticker (e.g., "AAPL", "SPY")
+- `quantity`: Number of shares you own
+- `position_type`: "long" (own shares) or "short" (borrowed and sold shares)
+
+**For Option Positions:**
+- `type`: "option"
+- `symbol`: Underlying stock ticker
+- `quantity`: Number of contracts
+- `position_type`: "long" (own the contract) or "short" (sold the contract)
+- `strike_price`: Option strike price
+- `expiration_date`: Expiration date in YYYY-MM-DD format
+- `option_type`: "call" or "put"
+
+### Using Positions in Code
+
+```ruby
+positions = [
+  Trading::GrokTradeService::Position.new(
+    type: "stock",
+    symbol: "AAPL",
+    quantity: 100,
+    position_type: "long"
+  ),
+  Trading::GrokTradeService::Position.new(
+    type: "option",
+    symbol: "TSLA",
+    quantity: 5,
+    position_type: "long",
+    strike_price: 250.0,
+    expiration_date: "2026-05-15",
+    option_type: "call"
+  )
+]
+
+service = Trading::GrokTradeService.new(
+  liquidity_amount: 10000,
+  positions: positions
+)
+
+result = service.call
+```
+
+When positions are provided, Grok will factor them into its recommendations and may suggest management strategies such as:
+- Taking profits from winning positions
+- Cutting losses from underperforming positions
+- Rolling options to extend exposure
+- Hedging existing exposure with new positions
+- Rebalancing the portfolio
+
 ## Error Handling
 
 The tool handles various error scenarios:

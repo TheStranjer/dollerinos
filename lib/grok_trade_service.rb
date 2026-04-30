@@ -5,6 +5,17 @@ require "active_support/core_ext/object/blank"
 
 module Trading
   class GrokTradeService
+    Position = Struct.new(
+      :type,
+      :symbol,
+      :quantity,
+      :position_type,
+      :strike_price,
+      :expiration_date,
+      :option_type,
+      keyword_init: true
+    )
+
     Trade = Struct.new(
       :type,
       :symbol,
@@ -56,9 +67,10 @@ module Trading
       ALWAYS complete the task by calling trade_recommendations.
     PROMPT
 
-    def initialize(liquidity_amount:, now: Time.now, xai_api_key: ENV["XAI_API_KEY"],
+    def initialize(liquidity_amount:, positions: [], now: Time.now, xai_api_key: ENV["XAI_API_KEY"],
                    hellthread_api_key: ENV["HELLTHREAD_API_KEY"], unusual_whales_api_key: ENV["UNUSUAL_WHALES_API_KEY"])
       @liquidity_amount = liquidity_amount
+      @positions = positions.is_a?(Array) ? positions : [positions]
       @now = now
       @xai_api_key = xai_api_key
       @hellthread_api_key = hellthread_api_key
@@ -83,7 +95,7 @@ module Trading
 
     private
 
-    attr_reader :liquidity_amount, :now, :xai_api_key, :hellthread_api_key, :unusual_whales_api_key
+    attr_reader :liquidity_amount, :positions, :now, :xai_api_key, :hellthread_api_key, :unusual_whales_api_key
 
     def validate_inputs
       return "Liquidity amount must be a positive number." unless normalized_liquidity_amount
@@ -185,7 +197,7 @@ module Trading
     end
 
     def user_prompt
-      <<~PROMPT.squish
+      prompt = <<~PROMPT.squish
         I have $#{normalized_liquidity_amount.round(2)} available for trading. Please identify and recommend
         promising stock and options trades I should consider. Research current market trends, unusual
         activity (especially from Unusual Whales), relevant news and discussions, and technical opportunities.
@@ -199,6 +211,29 @@ module Trading
 
         Ensure recommendations are appropriately sized for a $#{normalized_liquidity_amount.round(2)} account.
       PROMPT
+
+      if positions.any?
+        prompt += "\n\nMy current positions:\n"
+        positions.each do |position|
+          prompt += format_position(position)
+        end
+        prompt += "\nPlease consider recommendations for managing, scaling, or closing these positions as appropriate."
+      end
+
+      prompt
+    end
+
+    def format_position(position)
+      case position.type&.downcase
+      when "stock"
+        "- #{position.quantity} shares of #{position.symbol} (#{position.position_type})\n"
+      when "option"
+        strike = position.strike_price&.round(2)
+        expiry = position.expiration_date
+        "- #{position.quantity} contracts #{position.symbol} #{strike} #{position.option_type}, expiring #{expiry} (#{position.position_type})\n"
+      else
+        ""
+      end
     end
 
     def extract_trades(payload)

@@ -3,15 +3,18 @@
 require "bundler/setup" if File.exist?(File.expand_path("../../Gemfile", __FILE__))
 require_relative "../lib/grok_trade_service"
 require "lipgloss"
+require "json"
 
 class GrokTradeRecommender
-  def initialize(liquidity_amount)
+  def initialize(liquidity_amount, positions_file: nil)
     @liquidity_amount = liquidity_amount
+    @positions_file = positions_file
     setup_styles
   end
 
   def run
-    service = Trading::GrokTradeService.new(liquidity_amount: @liquidity_amount)
+    positions = load_positions if @positions_file
+    service = Trading::GrokTradeService.new(liquidity_amount: @liquidity_amount, positions: positions || [])
     result = service.call
 
     if result.success?
@@ -24,6 +27,35 @@ class GrokTradeRecommender
   end
 
   private
+
+  def load_positions
+    unless File.exist?(@positions_file)
+      raise "Positions file not found: #{@positions_file}"
+    end
+
+    json_data = File.read(@positions_file)
+    positions_data = JSON.parse(json_data)
+
+    unless positions_data.is_a?(Array)
+      raise "Positions file must contain a JSON array"
+    end
+
+    positions_data.map { |pos_data| build_position(pos_data) }
+  rescue JSON::ParserError => e
+    raise "Invalid JSON in positions file: #{e.message}"
+  end
+
+  def build_position(data)
+    Trading::GrokTradeService::Position.new(
+      type: data["type"]&.downcase,
+      symbol: data["symbol"]&.upcase&.strip,
+      quantity: data["quantity"],
+      position_type: data["position_type"]&.downcase,
+      strike_price: data["strike_price"],
+      expiration_date: data["expiration_date"],
+      option_type: data["option_type"]&.downcase
+    )
+  end
 
   def setup_styles
     @header_style = Lipgloss::Style.new
@@ -159,19 +191,27 @@ end
 
 if __FILE__ == $0
   # Main execution
-  if ARGV.length != 1
-    puts "Usage: #{$0} <liquidity_amount>"
-    puts "Example: #{$0} 10000"
+  if ARGV.length < 1 || ARGV.length > 2
+    puts "Usage: #{$0} <liquidity_amount> [positions_file]"
+    puts
+    puts "Arguments:"
+    puts "  liquidity_amount  - Amount of capital available for trading (required)"
+    puts "  positions_file    - Path to JSON file with current positions (optional)"
+    puts
+    puts "Examples:"
+    puts "  #{$0} 10000"
+    puts "  #{$0} 10000 positions.json"
     exit(1)
   end
 
   liquidity = ARGV[0]
+  positions_file = ARGV[1]
 
   begin
     amount = Float(liquidity)
     raise "Liquidity amount must be positive" if amount <= 0
 
-    recommender = GrokTradeRecommender.new(amount)
+    recommender = GrokTradeRecommender.new(amount, positions_file: positions_file)
     recommender.run
   rescue ArgumentError, StandardError => e
     puts "Error: #{e.message}"

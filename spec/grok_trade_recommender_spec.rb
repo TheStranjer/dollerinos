@@ -1,5 +1,7 @@
 require_relative "../spec/spec_helper"
 require_relative "../scripts/grok_trade_recommender"
+require "tempfile"
+require "json"
 
 describe GrokTradeRecommender do
   describe "#initialize" do
@@ -11,6 +13,160 @@ describe GrokTradeRecommender do
     it "accepts string amount" do
       recommender = described_class.new("5000")
       expect(recommender.instance_variable_get(:@liquidity_amount)).to eq("5000")
+    end
+
+    it "stores positions_file when provided" do
+      recommender = described_class.new(5000, positions_file: "positions.json")
+      expect(recommender.instance_variable_get(:@positions_file)).to eq("positions.json")
+    end
+
+    it "stores nil positions_file by default" do
+      recommender = described_class.new(5000)
+      expect(recommender.instance_variable_get(:@positions_file)).to be_nil
+    end
+  end
+
+  describe "#load_positions" do
+    it "loads positions from valid JSON file" do
+      positions_json = [
+        {
+          "type" => "stock",
+          "symbol" => "AAPL",
+          "quantity" => 100,
+          "position_type" => "long"
+        },
+        {
+          "type" => "option",
+          "symbol" => "TSLA",
+          "quantity" => 5,
+          "position_type" => "long",
+          "strike_price" => 250.0,
+          "expiration_date" => "2026-05-15",
+          "option_type" => "call"
+        }
+      ]
+
+      temp_file = Tempfile.new("positions.json")
+      temp_file.write(JSON.generate(positions_json))
+      temp_file.close
+
+      recommender = described_class.new(5000, positions_file: temp_file.path)
+      positions = recommender.send(:load_positions)
+
+      expect(positions).to be_an(Array)
+      expect(positions.length).to eq(2)
+      expect(positions[0].symbol).to eq("AAPL")
+      expect(positions[1].symbol).to eq("TSLA")
+
+      temp_file.unlink
+    end
+
+    it "raises error when positions file does not exist" do
+      recommender = described_class.new(5000, positions_file: "/nonexistent/path.json")
+      expect { recommender.send(:load_positions) }.to raise_error(/Positions file not found/)
+    end
+
+    it "raises error for invalid JSON" do
+      temp_file = Tempfile.new("positions.json")
+      temp_file.write("{ invalid json }")
+      temp_file.close
+
+      recommender = described_class.new(5000, positions_file: temp_file.path)
+      expect { recommender.send(:load_positions) }.to raise_error(/Invalid JSON/)
+
+      temp_file.unlink
+    end
+
+    it "raises error when JSON is not an array" do
+      temp_file = Tempfile.new("positions.json")
+      temp_file.write(JSON.generate({ "positions" => [] }))
+      temp_file.close
+
+      recommender = described_class.new(5000, positions_file: temp_file.path)
+      expect { recommender.send(:load_positions) }.to raise_error(/must contain a JSON array/)
+
+      temp_file.unlink
+    end
+  end
+
+  describe "#build_position" do
+    let(:recommender) { described_class.new(5000) }
+
+    it "builds stock position from hash" do
+      data = {
+        "type" => "stock",
+        "symbol" => "aapl",
+        "quantity" => 100,
+        "position_type" => "long"
+      }
+
+      position = recommender.send(:build_position, data)
+
+      expect(position.type).to eq("stock")
+      expect(position.symbol).to eq("AAPL")
+      expect(position.quantity).to eq(100)
+      expect(position.position_type).to eq("long")
+    end
+
+    it "builds option position from hash" do
+      data = {
+        "type" => "option",
+        "symbol" => "tsla",
+        "quantity" => 5,
+        "position_type" => "long",
+        "strike_price" => 250.0,
+        "expiration_date" => "2026-05-15",
+        "option_type" => "call"
+      }
+
+      position = recommender.send(:build_position, data)
+
+      expect(position.type).to eq("option")
+      expect(position.symbol).to eq("TSLA")
+      expect(position.quantity).to eq(5)
+      expect(position.position_type).to eq("long")
+      expect(position.strike_price).to eq(250.0)
+      expect(position.expiration_date).to eq("2026-05-15")
+      expect(position.option_type).to eq("call")
+    end
+
+    it "handles short positions" do
+      data = {
+        "type" => "stock",
+        "symbol" => "spy",
+        "quantity" => 50,
+        "position_type" => "SHORT"
+      }
+
+      position = recommender.send(:build_position, data)
+
+      expect(position.position_type).to eq("short")
+    end
+
+    it "normalizes symbol to uppercase" do
+      data = {
+        "type" => "stock",
+        "symbol" => "  aapl  ",
+        "quantity" => 100,
+        "position_type" => "long"
+      }
+
+      position = recommender.send(:build_position, data)
+
+      expect(position.symbol).to eq("AAPL")
+    end
+
+    it "normalizes type to lowercase" do
+      data = {
+        "type" => "STOCK",
+        "symbol" => "AAPL",
+        "quantity" => 100,
+        "position_type" => "long"
+      }
+
+      position = recommender.send(:build_position, data)
+
+      expect(position.type).to eq("stock")
     end
   end
 
@@ -68,6 +224,55 @@ describe GrokTradeRecommender do
 
       expect { recommender.run }.to raise_error(SystemExit) { |e| expect(e.status).to eq(1) }
       expect(recommender).to have_received(:display_error).with("API error")
+    end
+
+    it "loads positions from file when positions_file is provided" do
+      positions_json = [
+        {
+          "type" => "stock",
+          "symbol" => "AAPL",
+          "quantity" => 100,
+          "position_type" => "long"
+        }
+      ]
+
+      temp_file = Tempfile.new("positions.json")
+      temp_file.write(JSON.generate(positions_json))
+      temp_file.close
+
+      recommender = described_class.new(5000, positions_file: temp_file.path)
+      result = Trading::GrokTradeService::Result.new(
+        trades: [stock_trade],
+        error_message: nil
+      )
+
+      allow_any_instance_of(Trading::GrokTradeService).to receive(:call).and_return(result)
+      allow(recommender).to receive(:display_trades)
+
+      expect_any_instance_of(Trading::GrokTradeService).to receive(:initialize)
+        .with(hash_including(positions: anything))
+        .and_call_original
+
+      expect { recommender.run }.to raise_error(SystemExit) { |e| expect(e.status).to eq(0) }
+
+      temp_file.unlink
+    end
+
+    it "passes empty positions when no positions file" do
+      recommender = described_class.new(5000)
+      result = Trading::GrokTradeService::Result.new(
+        trades: [stock_trade],
+        error_message: nil
+      )
+
+      allow_any_instance_of(Trading::GrokTradeService).to receive(:call).and_return(result)
+      allow(recommender).to receive(:display_trades)
+
+      expect_any_instance_of(Trading::GrokTradeService).to receive(:initialize)
+        .with(hash_including(positions: []))
+        .and_call_original
+
+      expect { recommender.run }.to raise_error(SystemExit) { |e| expect(e.status).to eq(0) }
     end
   end
 

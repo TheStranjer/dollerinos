@@ -55,21 +55,33 @@ export UNUSUAL_WHALES_API_KEY=your_unusual_whales_api_key
 Run the trade recommender with your available liquidity amount:
 
 ```bash
-./scripts/grok_trade_recommender.rb <amount>
+./scripts/grok_trade_recommender.rb <liquidity_amount> [positions_file]
 ```
+
+### Arguments
+
+- `liquidity_amount` - Amount of capital available for trading (required)
+- `positions_file` - Path to JSON file with current positions (optional)
 
 ### Examples
 
 ```bash
-# Get recommendations for a $10,000 account
+# Get recommendations for a $10,000 account with no positions
 ./scripts/grok_trade_recommender.rb 10000
+
+# Get recommendations for a $10,000 account with existing positions
+./scripts/grok_trade_recommender.rb 10000 positions.json
 
 # Get recommendations for a $50,000 account
 ./scripts/grok_trade_recommender.rb 50000
 
-# Get recommendations for a $1,500 account
-./scripts/grok_trade_recommender.rb 1500
+# Get recommendations for a $1,500 account with positions
+./scripts/grok_trade_recommender.rb 1500 my_positions.json
 ```
+
+### Using with Positions File
+
+To provide your current holdings to Grok, create a JSON file with your positions and pass it as the second argument. See the [Current Positions Format](#current-positions-format) section below for the JSON structure.
 
 ### Sample Output
 

@@ -1,5 +1,5 @@
 require_relative "../spec/spec_helper"
-require_relative "../grok_trade_service"
+require_relative "../lib/grok_trade_service"
 
 describe Trading::GrokTradeService do
   describe "Trade struct" do

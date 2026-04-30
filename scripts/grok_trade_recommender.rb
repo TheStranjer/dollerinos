@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 require "bundler/setup" if File.exist?(File.expand_path("../../Gemfile", __FILE__))
-require_relative "../grok_trade_service"
+require_relative "../lib/grok_trade_service"
 require "lipgloss"
 
 class GrokTradeRecommender

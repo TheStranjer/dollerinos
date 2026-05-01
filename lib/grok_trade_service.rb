@@ -241,7 +241,7 @@ module Trading
                 option_type: { type: "string", enum: ["call", "put"] },
                 position_type: { type: "string", enum: ["buy", "sell"] }
               },
-              required: ["type", "symbol", "min_price", "max_price", "confidence", "reasoning"],
+              required: ["type", "symbol", "min_price", "max_price", "confidence", "reasoning", "position_type"],
               additionalProperties: false
             }
           }

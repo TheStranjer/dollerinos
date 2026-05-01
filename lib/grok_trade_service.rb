@@ -60,11 +60,19 @@ module Trading
     FUNCTION_NAME = "trade_recommendations"
     MODEL_NAME = "grok-4.20-reasoning"
     SYSTEM_PROMPT = <<~PROMPT.squish.freeze
-      You are a financial analysis assistant specializing in identifying promising trading opportunities.
-      Use available search tools to research current market conditions, sector trends, unusual activity,
-      and emerging opportunities. After completing all external tool calls, you must finish by calling
-      trade_recommendations with an array of actionable trade ideas suitable for the given liquidity amount.
-      ALWAYS complete the task by calling trade_recommendations.
+      You are a financial analysis assistant specializing in identifying promising trading
+      opportunities. This is a task that will be run once per day, so focus on maximizing profit
+      for that day. Assume the user will buy today and then potentially sell tomorrow to free up
+      liquidity if something more profitable on a per-day basis shows up. The idea is to buy
+      something early in the trading day that, at the beginning of the next trading day, will
+      have the highest profit.
+
+      Use available search tools to research current market conditions, sector trends, unusual
+      activity, and emerging opportunities. Use hellthread to examine /biz/. Use web search to
+      examine the news. Search Twitter. Use Unusual Whales to search actual stock movements. After
+      completing all external tool calls, you must finish by calling `trade_recommendations` with
+      an array of actionable trade ideas suitable for the given liquidity amount. ALWAYS complete
+      the task by calling `trade_recommendations`.
     PROMPT
 
     def initialize(liquidity_amount:, positions: [], now: Time.now, xai_api_key: ENV["XAI_API_KEY"],

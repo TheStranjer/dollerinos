@@ -48,7 +48,7 @@ module Trading
       end
     end
 
-    Result = Struct.new(:trades, :error_message, :usage, keyword_init: true) do
+    Result = Struct.new(:trades, :error_message, :usage, :duration_ms, keyword_init: true) do
       def success?
         error_message.blank?
       end
@@ -90,11 +90,13 @@ module Trading
       validation_error = validate_inputs
       return failure(validation_error) if validation_error
 
+      start_time = Time.now
       payload = fetch_payload
       trades = extract_trades(payload)
       usage = extract_usage(payload)
+      duration_ms = ((Time.now - start_time) * 1000).round
 
-      Result.new(trades: trades, usage: usage)
+      Result.new(trades: trades, usage: usage, duration_ms: duration_ms)
     rescue Error => e
       failure(e.message)
     rescue JSON::ParserError
@@ -295,7 +297,7 @@ module Trading
     end
 
     def failure(message)
-      Result.new(trades: [], error_message: message)
+      Result.new(trades: [], error_message: message, duration_ms: 0)
     end
   end
 end

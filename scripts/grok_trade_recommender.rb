@@ -18,7 +18,7 @@ class GrokTradeRecommender
     result = service.call
 
     if result.success?
-      display_trades(result.trades, result.usage)
+      display_trades(result.trades, result.usage, result.duration_ms)
       exit(0)
     else
       display_error(result.error_message)
@@ -84,7 +84,7 @@ class GrokTradeRecommender
       .foreground("#AAAAAA")
   end
 
-  def display_trades(trades, usage = {})
+  def display_trades(trades, usage = {}, duration_ms = 0)
     puts
     puts @header_style.render("🚀 Grok Trade Recommendations")
     puts
@@ -98,7 +98,7 @@ class GrokTradeRecommender
     display_stocks(stocks) if stocks.any?
     display_options(options) if options.any?
 
-    display_token_usage(usage) if usage.any?
+    display_token_usage(usage, duration_ms) if usage.any? || duration_ms > 0
   end
 
   def display_stocks(stocks)
@@ -182,9 +182,9 @@ class GrokTradeRecommender
     bar
   end
 
-  def display_token_usage(usage)
+  def display_token_usage(usage, duration_ms = 0)
     puts
-    puts @info_label_style.render("📊 Token Usage")
+    puts @info_label_style.render("📊 Query Performance & Token Usage")
     puts "=" * 80
 
     input_tokens = usage["input_tokens"] || 0
@@ -192,6 +192,10 @@ class GrokTradeRecommender
     reasoning_tokens = usage["reasoning_tokens"] || 0
     total_tokens = usage["total_tokens"] || (input_tokens + output_tokens + reasoning_tokens)
 
+    if duration_ms > 0
+      duration_sec = (duration_ms / 1000.0).round(2)
+      puts "  Resolution Time:  #{duration_sec}s (#{duration_ms}ms)"
+    end
     puts "  Input Tokens:     #{format_number(input_tokens)}"
     puts "  Output Tokens:    #{format_number(output_tokens)}"
     if reasoning_tokens > 0

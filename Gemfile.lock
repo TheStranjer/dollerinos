@@ -14,6 +14,8 @@ GEM
       securerandom (>= 0.3)
       tzinfo (~> 2.0, >= 2.0.5)
       uri (>= 0.13.1)
+    addressable (2.9.0)
+      public_suffix (>= 2.0.2, < 8.0)
     base64 (0.3.0)
     bigdecimal (4.1.2)
     bubbles (0.1.1)
@@ -93,6 +95,9 @@ GEM
     i18n (1.14.8)
       concurrent-ruby (~> 1.0)
     json (2.19.4)
+    json-schema (6.2.0)
+      addressable (~> 2.8)
+      bigdecimal (>= 3.1, < 5)
     lipgloss (0.2.2)
     lipgloss (0.2.2-aarch64-linux-gnu)
     lipgloss (0.2.2-aarch64-linux-musl)
@@ -105,6 +110,8 @@ GEM
     lipgloss (0.2.2-x86_64-linux-gnu)
     lipgloss (0.2.2-x86_64-linux-musl)
     logger (1.7.0)
+    mcp (0.14.0)
+      json-schema (>= 4.1)
     minitest (6.0.5)
       drb (~> 2.0)
       prism (~> 1.5)
@@ -122,6 +129,7 @@ GEM
     ntcharts (0.1.2-x86_64-linux-gnu)
     ntcharts (0.1.2-x86_64-linux-musl)
     prism (1.9.0)
+    public_suffix (7.0.5)
     rspec (3.13.2)
       rspec-core (~> 3.13.0)
       rspec-expectations (~> 3.13.0)
@@ -159,10 +167,12 @@ DEPENDENCIES
   activesupport
   charm
   faraday
+  mcp (~> 0.14.0)
   rspec
 
 CHECKSUMS
   activesupport (8.1.3) sha256=21a5e0dfbd4c3ddd9e1317ec6a4d782fa226e7867dc70b0743acda81a1dca20e
+  addressable (2.9.0) sha256=7fdf6ac3660f7f4e867a0838be3f6cf722ace541dd97767fa42bc6cfa980c7af
   base64 (0.3.0) sha256=27337aeabad6ffae05c265c450490628ef3ebd4b67be58257393227588f5a97b
   bigdecimal (4.1.2) sha256=53d217666027eab4280346fba98e7d5b66baaae1b9c3c1c0ffe89d48188a3fbd
   bubbles (0.1.1) sha256=ac16a9adef1cd4d51d7246ea6cda1a745a56321cc21a49e150e7446d62797d05
@@ -215,6 +225,7 @@ CHECKSUMS
   harmonica (0.1.1) sha256=587da9bc55ffb6387c0ffb9243bb3b03d57d1ebaf29a17282d3912a3443f397a
   i18n (1.14.8) sha256=285778639134865c5e0f6269e0b818256017e8cde89993fdfcbfb64d088824a5
   json (2.19.4) sha256=670a7d333fb3b18ca5b29cb255eb7bef099e40d88c02c80bd42a3f30fe5239ac
+  json-schema (6.2.0) sha256=e8bff46ed845a22c1ab2bd0d7eccf831c01fe23bb3920caa4c74db4306813666
   lipgloss (0.2.2) sha256=d803bef2ce53aa7b113d032a4e1f8d3f6fb1841532b379c0b2bfff23a3af85e9
   lipgloss (0.2.2-aarch64-linux-gnu) sha256=cb2e5db7fc14d85ec919223b5d16ad6d7be0ced096fec60e9f6e253d1c8718cd
   lipgloss (0.2.2-aarch64-linux-musl) sha256=e9c445531db8aa85efceeab73f09530dc53ed8f5b61aa78ab7fe2d6afb179b30
@@ -227,6 +238,7 @@ CHECKSUMS
   lipgloss (0.2.2-x86_64-linux-gnu) sha256=99b26dfc4eaa2bf2dfd9823f0894a06ef0b8f7f773db70ae8905d1c5d9d663ad
   lipgloss (0.2.2-x86_64-linux-musl) sha256=a05ebd4d16a441bbe657fafb269d0f9e6d89a1124b3288264efedc427b007703
   logger (1.7.0) sha256=196edec7cc44b66cfb40f9755ce11b392f21f7967696af15d274dde7edff0203
+  mcp (0.14.0) sha256=9e3ca2e6b5e568739e8c07090982829896f2e4d884ffbb668d06f0fe758489e1
   minitest (6.0.5) sha256=f007d7246bf4feea549502842cd7c6aba8851cdc9c90ba06de9c476c0d01155c
   net-http (0.9.1) sha256=25ba0b67c63e89df626ed8fac771d0ad24ad151a858af2cc8e6a716ca4336996
   ntcharts (0.1.2) sha256=0ca848f92a9958445b9cb79751130ca6c9e2924d8e2c1249f0fe71ba006d091b
@@ -241,6 +253,7 @@ CHECKSUMS
   ntcharts (0.1.2-x86_64-linux-gnu) sha256=df3ebd0af8b40c62460a03fe3f6394f3c64c5f63c42a70a3271245b71407faf0
   ntcharts (0.1.2-x86_64-linux-musl) sha256=d822276047e2bc579981882afc582199d8071e66342162c6ed1197e38db3edaf
   prism (1.9.0) sha256=7b530c6a9f92c24300014919c9dcbc055bf4cdf51ec30aed099b06cd6674ef85
+  public_suffix (7.0.5) sha256=1a8bb08f1bbea19228d3bed6e5ed908d1cb4f7c2726d18bd9cadf60bc676f623
   rspec (3.13.2) sha256=206284a08ad798e61f86d7ca3e376718d52c0bc944626b2349266f239f820587
   rspec-core (3.13.6) sha256=a8823c6411667b60a8bca135364351dda34cd55e44ff94c4be4633b37d828b2d
   rspec-expectations (3.13.5) sha256=33a4d3a1d95060aea4c94e9f237030a8f9eae5615e9bd85718fe3a09e4b58836

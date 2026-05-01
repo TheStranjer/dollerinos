@@ -1,0 +1,99 @@
+# frozen_string_literal: true
+
+require 'json'
+require 'mcp'
+
+# Test fixtures and a service builder for GrokTradeService specs.
+module GrokTradeFixtures
+  def hellthread_tool
+    @hellthread_tool ||= MCP::Client::Tool.new(
+      name: 'search_4chan',
+      description: 'Search 4chan /biz/',
+      input_schema: { 'type' => 'object', 'properties' => { 'query' => { 'type' => 'string' } } }
+    )
+  end
+
+  def unusual_whales_tool
+    @unusual_whales_tool ||= MCP::Client::Tool.new(
+      name: 'flow_alerts',
+      description: 'Get unusual options flow',
+      input_schema: { 'type' => 'object', 'properties' => { 'ticker' => { 'type' => 'string' } } }
+    )
+  end
+
+  def hellthread_client
+    @hellthread_client ||= instance_double(MCP::Client, tools: [hellthread_tool])
+  end
+
+  def unusual_whales_client
+    @unusual_whales_client ||= instance_double(MCP::Client, tools: [unusual_whales_tool])
+  end
+
+  def mcp_factory
+    lambda do |label:, url:, api_key:|
+      _ = url
+      _ = api_key
+      label_to_client.fetch(label)
+    end
+  end
+
+  def label_to_client
+    {
+      Trading::Constants::HELLTHREAD_LABEL => hellthread_client,
+      Trading::Constants::UNUSUAL_WHALES_LABEL => unusual_whales_client
+    }
+  end
+
+  def hellthread_tool_full_name
+    "#{Trading::Constants::HELLTHREAD_LABEL}#{Trading::Constants::TOOL_NAME_SEPARATOR}search_4chan"
+  end
+
+  def unusual_whales_tool_full_name
+    "#{Trading::Constants::UNUSUAL_WHALES_LABEL}#{Trading::Constants::TOOL_NAME_SEPARATOR}flow_alerts"
+  end
+
+  def trade_call(trades:, call_id: 'trade_1')
+    {
+      'type' => 'function_call',
+      'id' => "fc_#{call_id}",
+      'call_id' => call_id,
+      'name' => Trading::Constants::FUNCTION_NAME,
+      'arguments' => JSON.generate({ 'trades' => trades })
+    }
+  end
+
+  def tool_call(name:, arguments: {}, call_id: 'tc_x')
+    {
+      'type' => 'function_call',
+      'id' => "fc_#{call_id}",
+      'call_id' => call_id,
+      'name' => name,
+      'arguments' => JSON.generate(arguments)
+    }
+  end
+
+  def valid_trade
+    {
+      'type' => 'stock', 'symbol' => 'AAPL',
+      'min_price' => 150.0, 'max_price' => 160.0,
+      'confidence' => 75, 'reasoning' => 'Solid breakout',
+      'position_type' => 'buy'
+    }
+  end
+
+  def text_result(text)
+    { 'result' => { 'content' => [{ 'type' => 'text', 'text' => text }] } }
+  end
+
+  def build_service(xai_client: nil, **overrides)
+    Trading::GrokTradeService.new(**service_defaults(xai_client).merge(overrides))
+  end
+
+  def service_defaults(xai_client)
+    {
+      liquidity_amount: 5000, xai_api_key: 'test_key',
+      hellthread_api_key: 'ht_key', unusual_whales_api_key: 'uw_key',
+      mcp_client_factory: mcp_factory, xai_client_factory: xai_client&.factory
+    }
+  end
+end

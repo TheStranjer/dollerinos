@@ -48,7 +48,7 @@ module Trading
       end
     end
 
-    Result = Struct.new(:trades, :error_message, keyword_init: true) do
+    Result = Struct.new(:trades, :error_message, :usage, keyword_init: true) do
       def success?
         error_message.blank?
       end
@@ -91,8 +91,9 @@ module Trading
 
       payload = fetch_payload
       trades = extract_trades(payload)
+      usage = extract_usage(payload)
 
-      Result.new(trades: trades)
+      Result.new(trades: trades, usage: usage)
     rescue Error => e
       failure(e.message)
     rescue JSON::ParserError
@@ -286,6 +287,10 @@ module Trading
         option_type: data["option_type"]&.downcase,
         position_type: data["position_type"]&.downcase
       )
+    end
+
+    def extract_usage(payload)
+      payload["usage"] || {}
     end
 
     def failure(message)

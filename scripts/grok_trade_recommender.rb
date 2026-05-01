@@ -18,7 +18,7 @@ class GrokTradeRecommender
     result = service.call
 
     if result.success?
-      display_trades(result.trades)
+      display_trades(result.trades, result.usage)
       exit(0)
     else
       display_error(result.error_message)
@@ -84,7 +84,7 @@ class GrokTradeRecommender
       .foreground("#AAAAAA")
   end
 
-  def display_trades(trades)
+  def display_trades(trades, usage = {})
     puts
     puts @header_style.render("🚀 Grok Trade Recommendations")
     puts
@@ -97,6 +97,8 @@ class GrokTradeRecommender
 
     display_stocks(stocks) if stocks.any?
     display_options(options) if options.any?
+
+    display_token_usage(usage) if usage.any?
   end
 
   def display_stocks(stocks)
@@ -178,6 +180,29 @@ class GrokTradeRecommender
     bar += gray.render("░" * empty)
 
     bar
+  end
+
+  def display_token_usage(usage)
+    puts
+    puts @info_label_style.render("📊 Token Usage")
+    puts "=" * 80
+
+    input_tokens = usage["input_tokens"] || 0
+    output_tokens = usage["output_tokens"] || 0
+    reasoning_tokens = usage["reasoning_tokens"] || 0
+    total_tokens = usage["total_tokens"] || (input_tokens + output_tokens + reasoning_tokens)
+
+    puts "  Input Tokens:     #{format_number(input_tokens)}"
+    puts "  Output Tokens:    #{format_number(output_tokens)}"
+    if reasoning_tokens > 0
+      puts "  Reasoning Tokens: #{format_number(reasoning_tokens)}"
+    end
+    puts "  Total Tokens:     #{format_number(total_tokens)}"
+    puts
+  end
+
+  def format_number(num)
+    num.to_s.reverse.scan(/\d{1,3}/).join(",").reverse
   end
 
   def display_error(message)

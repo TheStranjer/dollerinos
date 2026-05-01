@@ -58,7 +58,7 @@ module Trading
 
     API_URI = URI("https://api.x.ai/v1/responses")
     FUNCTION_NAME = "trade_recommendations"
-    MODEL_NAME = "grok-4.20-reasoning"
+    MODEL_NAME = "grok-4.3"
     SYSTEM_PROMPT = <<~PROMPT.squish.freeze
       You are a financial analysis assistant specializing in identifying promising trading
       opportunities. This is a task that will be run once per day, so focus on maximizing profit

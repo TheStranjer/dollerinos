@@ -526,9 +526,15 @@ describe Trading::GrokTradeService do
     end
 
     describe "error handling" do
-      it "returns error when function_call is not found" do
-        payload = { "output" => [{ "type" => "text", "content" => "No function call" }] }
-        allow(service).to receive(:fetch_payload).and_return(payload)
+      it "returns error when function_call is not found and retry also fails" do
+        initial_payload = { "output" => [{ "type" => "text", "content" => "No function call" }] }
+        retry_payload = { "output" => [{ "type" => "text", "content" => "Still no function call" }] }
+
+        call_count = 0
+        allow(service).to receive(:fetch_payload) do
+          call_count += 1
+          call_count == 1 ? initial_payload : retry_payload
+        end
 
         result = service.call
         expect(result).not_to be_success
@@ -612,6 +618,257 @@ describe Trading::GrokTradeService do
         expect(result.error_message).to include("failed")
       end
     end
+
+    describe "retry logic" do
+      it "retries when trade_recommendations is missing in first response" do
+        initial_payload = {
+          "output" => [
+            { "type" => "text", "text" => "Analyzing market data..." },
+            { "type" => "tool_use", "tool" => "web_search", "id" => "search_1", "input" => { "query" => "AAPL news" } },
+            { "type" => "tool_result", "tool_id" => "search_1", "result" => [{ "text" => "Market is bullish" }] }
+          ]
+        }
+
+        retry_payload = {
+          "output" => [
+            {
+              "type" => "function_call",
+              "name" => "trade_recommendations",
+              "arguments" => JSON.generate({
+                "trades" => [
+                  {
+                    "type" => "stock",
+                    "symbol" => "AAPL",
+                    "min_price" => 150.0,
+                    "max_price" => 160.0,
+                    "confidence" => 75,
+                    "reasoning" => "Strong market sentiment"
+                  }
+                ]
+              })
+            }
+          ]
+        }
+
+        call_count = 0
+        allow(service).to receive(:fetch_payload) do
+          call_count += 1
+          call_count == 1 ? initial_payload : retry_payload
+        end
+
+        result = service.call
+        expect(result).to be_success
+        expect(result.trades.size).to eq(1)
+        expect(result.trades.first.symbol).to eq("AAPL")
+      end
+
+      it "extracts reasoning and tools from first response for retry context" do
+        initial_payload = {
+          "output" => [
+            { "type" => "text", "text" => "Starting analysis..." },
+            {
+              "type" => "tool_use",
+              "tool" => "web_search",
+              "id" => "search_1",
+              "input" => { "query" => "market trends" }
+            },
+            {
+              "type" => "tool_result",
+              "tool_id" => "search_1",
+              "result" => [{ "text" => "Market is trending up" }]
+            }
+          ]
+        }
+
+        retry_payload = {
+          "output" => [
+            {
+              "type" => "function_call",
+              "name" => "trade_recommendations",
+              "arguments" => JSON.generate({
+                "trades" => [
+                  {
+                    "type" => "stock",
+                    "symbol" => "SPY",
+                    "min_price" => 400.0,
+                    "max_price" => 410.0,
+                    "confidence" => 80,
+                    "reasoning" => "Uptrend confirmed"
+                  }
+                ]
+              })
+            }
+          ]
+        }
+
+        call_count = 0
+        allow(service).to receive(:fetch_payload) do
+          call_count += 1
+          call_count == 1 ? initial_payload : retry_payload
+        end
+
+        # Verify that retry happens and succeeds
+        result = service.call
+        expect(result).to be_success
+        expect(result.trades.first.symbol).to eq("SPY")
+      end
+
+      it "filters invalid trades from retry response" do
+        initial_payload = {
+          "output" => [
+            { "type" => "text", "text" => "Researching trades..." }
+          ]
+        }
+
+        retry_payload = {
+          "output" => [
+            {
+              "type" => "function_call",
+              "name" => "trade_recommendations",
+              "arguments" => JSON.generate({
+                "trades" => [
+                  {
+                    "type" => "stock",
+                    "symbol" => "AAPL",
+                    "min_price" => 150.0,
+                    "max_price" => 160.0,
+                    "confidence" => 75,
+                    "reasoning" => "Good trade"
+                  },
+                  {
+                    "type" => "stock",
+                    "symbol" => "",
+                    "min_price" => 100.0,
+                    "max_price" => 110.0,
+                    "confidence" => 50,
+                    "reasoning" => "Invalid symbol"
+                  },
+                  {
+                    "type" => "option",
+                    "symbol" => "TSLA",
+                    "min_price" => 5.0,
+                    "max_price" => 10.0,
+                    "confidence" => 65,
+                    "reasoning" => "Good option",
+                    "strike_price" => 250.0,
+                    "expiration_date_min" => "2026-05-15",
+                    "expiration_date_max" => "2026-05-22",
+                    "option_type" => "call",
+                    "position_type" => "buy"
+                  }
+                ]
+              })
+            }
+          ]
+        }
+
+        call_count = 0
+        allow(service).to receive(:fetch_payload) do
+          call_count += 1
+          call_count == 1 ? initial_payload : retry_payload
+        end
+
+        result = service.call
+        expect(result).to be_success
+        expect(result.trades.size).to eq(2)
+        expect(result.trades.map(&:symbol)).to contain_exactly("AAPL", "TSLA")
+      end
+
+      it "fails if retry response also has no valid trades" do
+        initial_payload = {
+          "output" => [
+            { "type" => "text", "text" => "No trades found..." }
+          ]
+        }
+
+        retry_payload = {
+          "output" => [
+            {
+              "type" => "function_call",
+              "name" => "trade_recommendations",
+              "arguments" => JSON.generate({
+                "trades" => [
+                  {
+                    "type" => "invalid",
+                    "symbol" => "",
+                    "min_price" => -100.0,
+                    "max_price" => 0,
+                    "confidence" => 150,
+                    "reasoning" => ""
+                  }
+                ]
+              })
+            }
+          ]
+        }
+
+        call_count = 0
+        allow(service).to receive(:fetch_payload) do
+          call_count += 1
+          call_count == 1 ? initial_payload : retry_payload
+        end
+
+        result = service.call
+        expect(result).not_to be_success
+        expect(result.error_message).to include("no valid")
+      end
+
+      it "handles tool outputs in retry context extraction" do
+        initial_payload = {
+          "output" => [
+            { "type" => "text", "text" => "Found interesting trends" },
+            {
+              "type" => "tool_use",
+              "tool" => "unusual_whales_search",
+              "id" => "uw_1",
+              "input" => { "symbol" => "AAPL" }
+            },
+            {
+              "type" => "tool_result",
+              "tool_id" => "uw_1",
+              "result" => [{ "text" => "10k contracts of calls purchased" }]
+            }
+          ]
+        }
+
+        retry_payload = {
+          "output" => [
+            {
+              "type" => "function_call",
+              "name" => "trade_recommendations",
+              "arguments" => JSON.generate({
+                "trades" => [
+                  {
+                    "type" => "option",
+                    "symbol" => "AAPL",
+                    "min_price" => 3.0,
+                    "max_price" => 8.0,
+                    "confidence" => 90,
+                    "reasoning" => "Unusual whale activity detected",
+                    "strike_price" => 160.0,
+                    "expiration_date_min" => "2026-05-22",
+                    "expiration_date_max" => "2026-06-05",
+                    "option_type" => "call",
+                    "position_type" => "buy"
+                  }
+                ]
+              })
+            }
+          ]
+        }
+
+        call_count = 0
+        allow(service).to receive(:fetch_payload) do
+          call_count += 1
+          call_count == 1 ? initial_payload : retry_payload
+        end
+
+        result = service.call
+        expect(result).to be_success
+        expect(result.trades.first.confidence).to eq(90)
+        expect(result.trades.first.option?).to be true
+      end
+    end
   end
 
   describe "request_body" do
@@ -626,7 +883,7 @@ describe Trading::GrokTradeService do
 
     it "includes correct model name" do
       body = service.send(:request_body)
-      expect(body[:model]).to eq("grok-4.20-reasoning")
+      expect(body[:model]).to eq("grok-4.3")
     end
 
     it "includes system and user prompts" do

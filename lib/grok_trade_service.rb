@@ -67,8 +67,9 @@ module Trading
       for that day. Assume the user will buy today and then potentially sell tomorrow to free up
       liquidity if something more profitable on a per-day basis shows up. The idea is to buy
       something early in the trading day that, at the beginning of the next trading day, will
-      have the highest profit. If you believe anything the user already owns will go down today,
-      *ALWAYS* recommend sale of that holding to that user.
+      have the highest profit. Examine the user's holdings for potential decline; if you believe
+      anything the user already owns will go down today, *ALWAYS* recommend sale of that holding to
+      that user.
 
       Use available search tools to research current market conditions, sector trends, unusual
       activity, and emerging opportunities. Use hellthread to examine /biz/. Use web search to
@@ -92,9 +93,22 @@ module Trading
       validation_error = validate_inputs
       return failure(validation_error) if validation_error
 
+      @retry_context = nil
       start_time = Time.now
       payload = fetch_payload
-      trades = extract_trades(payload)
+
+      begin
+        trades = extract_trades(payload)
+      rescue Error => e
+        if e.message.include?("did not return #{FUNCTION_NAME}")
+          trades = retry_with_context(payload)
+        else
+          raise
+        end
+      ensure
+        @retry_context = nil
+      end
+
       usage = extract_usage(payload)
       duration_ms = ((Time.now - start_time) * 1000).round
 
@@ -164,6 +178,8 @@ module Trading
     end
 
     def request_body
+      return retry_request_body(@retry_context) if @retry_context
+
       {
         model: MODEL_NAME,
         input: [
@@ -197,37 +213,41 @@ module Trading
             type: "function",
             name: FUNCTION_NAME,
             description: "Return recommended stock and options trades",
-            parameters: {
-              type: "object",
-              properties: {
-                trades: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      type: { type: "string", enum: ["stock", "option"] },
-                      symbol: { type: "string" },
-                      min_price: { type: "number" },
-                      max_price: { type: "number" },
-                      confidence: { type: "integer", minimum: 0, maximum: 100 },
-                      reasoning: { type: "string" },
-                      strike_price: { type: "number" },
-                      expiration_date_min: { type: "string" },
-                      expiration_date_max: { type: "string" },
-                      option_type: { type: "string", enum: ["call", "put"] },
-                      position_type: { type: "string", enum: ["buy", "sell"] }
-                    },
-                    required: ["type", "symbol", "min_price", "max_price", "confidence", "reasoning"],
-                    additionalProperties: false
-                  }
-                }
-              },
-              required: ["trades"],
-              additionalProperties: false
-            }
+            parameters: trade_function_schema
           }
         ],
         tool_choice: "auto"
+      }
+    end
+
+    def trade_function_schema
+      {
+        type: "object",
+        properties: {
+          trades: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["stock", "option"] },
+                symbol: { type: "string" },
+                min_price: { type: "number" },
+                max_price: { type: "number" },
+                confidence: { type: "integer", minimum: 0, maximum: 100 },
+                reasoning: { type: "string" },
+                strike_price: { type: "number" },
+                expiration_date_min: { type: "string" },
+                expiration_date_max: { type: "string" },
+                option_type: { type: "string", enum: ["call", "put"] },
+                position_type: { type: "string", enum: ["buy", "sell"] }
+              },
+              required: ["type", "symbol", "min_price", "max_price", "confidence", "reasoning"],
+              additionalProperties: false
+            }
+          }
+        },
+        required: ["trades"],
+        additionalProperties: false
       }
     end
 
@@ -316,6 +336,67 @@ module Trading
 
     def extract_usage(payload)
       payload["usage"] || {}
+    end
+
+    def retry_with_context(payload)
+      output = Array(payload["output"])
+      reasoning_and_tools = extract_reasoning_and_tools(output)
+
+      @retry_context = reasoning_and_tools
+      retry_payload = fetch_payload
+      extract_trades(retry_payload)
+    end
+
+    def extract_reasoning_and_tools(output)
+      output.map { |item| format_output_item(item) }.compact.join("\n\n")
+    end
+
+    def format_output_item(item)
+      case item["type"]
+      when "text"
+        item["text"]
+      when "tool_use"
+        "Tool: #{item['tool']} (ID: #{item['id']})\nInput: #{JSON.pretty_generate(item['input'])}"
+      when "tool_result"
+        "Tool Result (#{item['tool_id']}): #{item['result'][0]&.dig('text') || item['result'].inspect}"
+      end
+    end
+
+    def retry_request_body(context)
+      {
+        model: MODEL_NAME,
+        input: [
+          {
+            role: "system",
+            content: SYSTEM_PROMPT
+          },
+          {
+            role: "user",
+            content: retry_user_prompt(context)
+          }
+        ],
+        tools: [
+          {
+            type: "function",
+            name: FUNCTION_NAME,
+            description: "Return recommended stock and options trades",
+            parameters: trade_function_schema
+          }
+        ],
+        tool_choice: "auto"
+      }
+    end
+
+    def retry_user_prompt(context)
+      <<~PROMPT.squish
+        Based on the following research and analysis, please provide trade recommendations by calling
+        the trade_recommendations function with an array of actionable trade ideas.
+
+        Previous Research and Tool Outputs:
+        #{context}
+
+        Now, please call trade_recommendations with your recommended trades based on the above analysis.
+      PROMPT
     end
 
     def failure(message)

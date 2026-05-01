@@ -128,6 +128,7 @@ module Trading
       request.body = JSON.generate(request_body)
 
       response = Net::HTTP.start(API_URI.host, API_URI.port, use_ssl: true) do |http|
+        http.read_timeout = 900
         http.request(request)
       end
 

@@ -193,8 +193,8 @@ class GrokTradeRecommender
     total_tokens = usage["total_tokens"] || (input_tokens + output_tokens + reasoning_tokens)
 
     if duration_ms > 0
-      duration_sec = (duration_ms / 1000.0).round(2)
-      puts "  Resolution Time:  #{duration_sec}s (#{duration_ms}ms)"
+      duration_formatted = format_duration(duration_ms)
+      puts "  Resolution Time:  #{duration_formatted}"
     end
     puts "  Input Tokens:     #{format_number(input_tokens)}"
     puts "  Output Tokens:    #{format_number(output_tokens)}"
@@ -207,6 +207,21 @@ class GrokTradeRecommender
 
   def format_number(num)
     num.to_s.reverse.scan(/\d{1,3}/).join(",").reverse
+  end
+
+  def format_duration(duration_ms)
+    total_seconds = duration_ms / 1000
+    hours = total_seconds / 3600
+    remaining = total_seconds % 3600
+    minutes = remaining / 60
+    seconds = remaining % 60
+
+    parts = []
+    parts << "#{hours}hr" if hours > 0
+    parts << "#{minutes}min" if minutes > 0
+    parts << "#{seconds}s" if seconds > 0 || parts.empty?
+
+    parts.join(" ")
   end
 
   def display_error(message)

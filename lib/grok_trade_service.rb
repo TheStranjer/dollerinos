@@ -67,8 +67,8 @@ module Trading
       for that day. Assume the user will buy today and then potentially sell tomorrow to free up
       liquidity if something more profitable on a per-day basis shows up. The idea is to buy
       something early in the trading day that, at the beginning of the next trading day, will
-      have the highest profit. If you believe existing an holding will go down today, *ALWAYS*
-      recommend sale of that holding.
+      have the highest profit. If you believe anything the user already owns will go down today,
+      *ALWAYS* recommend sale of that holding to that user.
 
       Use available search tools to research current market conditions, sector trends, unusual
       activity, and emerging opportunities. Use hellthread to examine /biz/. Use web search to

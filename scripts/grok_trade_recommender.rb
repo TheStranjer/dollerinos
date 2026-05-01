@@ -82,6 +82,30 @@ class GrokTradeRecommender
 
     @info_label_style = Lipgloss::Style.new
       .foreground("#AAAAAA")
+
+    @perf_title_style = Lipgloss::Style.new
+      .bold(true)
+      .foreground("#00D7FF")
+
+    @duration_style = Lipgloss::Style.new
+      .foreground("#FFD700")
+
+    @input_tokens_style = Lipgloss::Style.new
+      .foreground("#00D7FF")
+
+    @output_tokens_style = Lipgloss::Style.new
+      .foreground("#00FF00")
+
+    @reasoning_tokens_style = Lipgloss::Style.new
+      .foreground("#FFFF00")
+
+    @total_tokens_style = Lipgloss::Style.new
+      .bold(true)
+      .foreground("#FF00FF")
+
+    @token_value_style = Lipgloss::Style.new
+      .bold(true)
+      .foreground("#FFFFFF")
   end
 
   def display_trades(trades, usage = {}, duration_ms = 0)
@@ -184,7 +208,7 @@ class GrokTradeRecommender
 
   def display_token_usage(usage, duration_ms = 0)
     puts
-    puts @info_label_style.render("📊 Query Performance & Token Usage")
+    puts @perf_title_style.render("📊 Query Performance & Token Usage")
     puts "=" * 80
 
     input_tokens = usage["input_tokens"] || 0
@@ -194,14 +218,14 @@ class GrokTradeRecommender
 
     if duration_ms > 0
       duration_formatted = format_duration(duration_ms)
-      puts "  Resolution Time:  #{duration_formatted}"
+      puts "  #{@duration_style.render("Resolution Time:")}  #{@token_value_style.render(duration_formatted)}"
     end
-    puts "  Input Tokens:     #{format_number(input_tokens)}"
-    puts "  Output Tokens:    #{format_number(output_tokens)}"
+    puts "  #{@input_tokens_style.render("Input Tokens:")}     #{@token_value_style.render(format_number(input_tokens))}"
+    puts "  #{@output_tokens_style.render("Output Tokens:")}    #{@token_value_style.render(format_number(output_tokens))}"
     if reasoning_tokens > 0
-      puts "  Reasoning Tokens: #{format_number(reasoning_tokens)}"
+      puts "  #{@reasoning_tokens_style.render("Reasoning Tokens:")} #{@token_value_style.render(format_number(reasoning_tokens))}"
     end
-    puts "  Total Tokens:     #{format_number(total_tokens)}"
+    puts "  #{@total_tokens_style.render("Total Tokens:")}     #{@token_value_style.render(format_number(total_tokens))}"
     puts
   end
 

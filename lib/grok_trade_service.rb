@@ -1,7 +1,9 @@
 require "json"
 require "net/http"
+require "fileutils"
 require "active_support/core_ext/string"
 require "active_support/core_ext/object/blank"
+require_relative "har_archiver"
 
 module Trading
   class GrokTradeService
@@ -131,10 +133,30 @@ module Trading
       request["Authorization"] = "Bearer #{xai_api_key}"
       request.body = JSON.generate(request_body)
 
+      start_time = Time.now
       response = Net::HTTP.start(API_URI.host, API_URI.port, use_ssl: true) do |http|
         http.read_timeout = 900
         http.request(request)
       end
+      end_time = Time.now
+
+      # Extract and archive request/response data
+      request_data = {
+        method: request.method,
+        url: API_URI.to_s,
+        headers: request.each_header.map { |k, v| { name: k, value: v } },
+        body: request.body
+      }
+
+      response_data = {
+        code: response.code.to_i,
+        message: response.message,
+        headers: response.each_header.map { |k, v| { name: k, value: v } },
+        content_type: response["content-type"],
+        body: response.body
+      }
+
+      HarArchiver.archive(request_data, response_data, start_time, end_time)
 
       raise Error, "xAI request failed with status #{response.code}." unless response.is_a?(Net::HTTPSuccess)
 

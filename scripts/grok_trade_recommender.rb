@@ -106,6 +106,14 @@ class GrokTradeRecommender
     @token_value_style = Lipgloss::Style.new
       .bold(true)
       .foreground("#FFFFFF")
+
+    @buy_action_style = Lipgloss::Style.new
+      .bold(true)
+      .foreground("#00FF00")
+
+    @sell_action_style = Lipgloss::Style.new
+      .bold(true)
+      .foreground("#FF0000")
   end
 
   def display_trades(trades, usage = {}, duration_ms = 0)
@@ -137,7 +145,11 @@ class GrokTradeRecommender
   end
 
   def display_stock_card(trade, number)
-    puts "  #{@stock_symbol_style.render("#{number}. #{trade.symbol}")}"
+    action = trade.position_type&.upcase || "?"
+    action_style = trade.position_type&.downcase == "buy" ? @buy_action_style : @sell_action_style
+    action_colored = action_style.render(action)
+
+    puts "  #{@stock_symbol_style.render("#{number}. #{trade.symbol}")} - #{action_colored}"
 
     price_range = "#{format_price(trade.min_price)} - #{format_price(trade.max_price)}"
     confidence_bar = confidence_indicator(trade.confidence)
@@ -162,8 +174,10 @@ class GrokTradeRecommender
   def display_option_card(trade, number)
     position = trade.position_type&.upcase || "?"
     option_type = trade.option_type&.upcase || "?"
+    action_style = trade.position_type&.downcase == "buy" ? @buy_action_style : @sell_action_style
+    position_colored = action_style.render(position)
 
-    puts "  #{@option_symbol_style.render("#{number}. #{trade.symbol} #{option_type} - #{position}")}"
+    puts "  #{@option_symbol_style.render("#{number}. #{trade.symbol} #{option_type}")} - #{position_colored}"
 
     strike = trade.strike_price ? format_price(trade.strike_price) : "N/A"
     expiry = if trade.expiration_date_min && trade.expiration_date_max

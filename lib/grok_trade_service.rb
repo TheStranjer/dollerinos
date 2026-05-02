@@ -83,7 +83,8 @@ module Trading
         mcp_tools_by_label: mcp_tools_by_label,
         initial_input: initial_input,
         max_iterations: @config.max_iterations,
-        on_iteration: @config.on_iteration
+        on_iteration: @config.on_iteration,
+        now: @config.now
       )
     end
 

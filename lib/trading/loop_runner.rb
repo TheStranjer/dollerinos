@@ -23,7 +23,7 @@ module Trading
       @mcp_tools_by_label = deps.fetch(:mcp_tools_by_label)
       @max_iterations = deps.fetch(:max_iterations)
       @on_iteration = deps[:on_iteration]
-      @state = LoopState.new(initial_input: deps.fetch(:initial_input))
+      @state = LoopState.new(initial_input: deps.fetch(:initial_input), now: deps[:now] || Time.now)
       @usage = UsageAccumulator.new
     end
 

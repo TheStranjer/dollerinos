@@ -8,14 +8,15 @@ module Trading
   class LoopState
     attr_reader :iteration, :input
 
-    def initialize(initial_input:)
+    def initialize(initial_input:, now: Time.now)
       @input = initial_input.dup
       @iteration = 0
+      @now = now
     end
 
     def begin_iteration(max_iterations)
       @iteration += 1
-      @input[0] = { role: 'system', content: SystemPrompt.for_iteration(@iteration, max_iterations) }
+      @input[0] = { role: 'system', content: SystemPrompt.for_iteration(@iteration, max_iterations, now: @now) }
     end
 
     def append_outputs(output_items)

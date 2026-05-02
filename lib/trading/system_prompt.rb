@@ -2,6 +2,7 @@
 
 require 'active_support/core_ext/string'
 require_relative 'constants'
+require_relative 'market_calendar'
 
 module Trading
   # The base system prompt plus per-iteration progress directives.
@@ -24,10 +25,24 @@ module Trading
       actionable trade ideas.
     PROMPT
 
+    MARKET_CLOSED_NOTICE = <<~NOTICE.squish.freeze
+      The U.S. stock market is CLOSED today. Therefore the only available choices are
+      "after hours" ones. Limit recommendations to instruments and strategies that can be
+      executed during after-hours trading sessions.
+    NOTICE
+
     module_function
 
-    def for_iteration(iteration, max_iterations)
-      [BASE, progress_line(iteration, max_iterations), directive_line(iteration, max_iterations)].join("\n\n")
+    def for_iteration(iteration, max_iterations, now: Time.now)
+      sections = [BASE, market_status_line(now), progress_line(iteration, max_iterations),
+                  directive_line(iteration, max_iterations)]
+      sections.compact.join("\n\n")
+    end
+
+    def market_status_line(now)
+      return nil if MarketCalendar.open?(now)
+
+      MARKET_CLOSED_NOTICE
     end
 
     def progress_line(iteration, max_iterations)

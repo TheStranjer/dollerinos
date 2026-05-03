@@ -11,6 +11,9 @@ module Trading
   class HarArchiver
     HTTP_VERSION = 'HTTP/1.1'
     OUTPUT_TIMINGS = { blocked: -1, dns: -1, connect: -1, send: -1, receive: -1, ssl: -1 }.freeze
+    AUTHORIZATION_HEADER = /\Aauthorization\z/i
+    BEARER_AUTHORIZATION = /\ABearer\s+\S+/
+    REDACTED_BEARER = 'Bearer [REDACTED]'
 
     attr_reader :filepath
 
@@ -60,7 +63,7 @@ module Trading
       body_text = request_data[:body]
       {
         method: request_data[:method], url: request_data[:url], httpVersion: HTTP_VERSION,
-        headers: request_data[:headers] || [], queryString: [], cookies: [], headersSize: -1,
+        headers: redact_headers(request_data[:headers]), queryString: [], cookies: [], headersSize: -1,
         bodySize: body_text ? body_text.bytesize : 0,
         postData: body_text ? { mimeType: 'application/json', text: body_text } : nil
       }
@@ -70,10 +73,26 @@ module Trading
       body_text = response_data[:body] || ''
       {
         status: response_data[:code], statusText: response_data[:message], httpVersion: HTTP_VERSION,
-        headers: response_data[:headers] || [], cookies: [],
+        headers: redact_headers(response_data[:headers]), cookies: [],
         content: build_content(body_text, response_data[:content_type]),
         redirectURL: '', headersSize: -1, bodySize: body_text.bytesize
       }
+    end
+
+    def redact_headers(headers)
+      return [] unless headers
+
+      headers.each_with_object([]) do |header, redacted|
+        sanitized = sanitize_header(header)
+        redacted << sanitized if sanitized
+      end
+    end
+
+    def sanitize_header(header)
+      return header unless header[:name].to_s.match?(AUTHORIZATION_HEADER)
+      return nil unless header[:value].to_s.match?(BEARER_AUTHORIZATION)
+
+      header.merge(value: REDACTED_BEARER)
     end
 
     def build_content(body_text, content_type)

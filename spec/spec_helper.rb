@@ -12,6 +12,7 @@ RSpec.configure do |config|
   config.include GrokTradeFixtures
   config.include StdoutCapture
   config.include HarFixtures
+  config.include HarRedactionFixtures
   config.expect_with :rspec do |expectations|
     expectations.include_chain_clauses_in_custom_matcher_descriptions = true
   end

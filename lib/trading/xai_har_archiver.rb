@@ -4,12 +4,13 @@ require_relative '../har_archiver'
 require_relative 'constants'
 
 module Trading
-  # Builds HAR-format request/response payloads for the underlying HarArchiver.
+  # Builds HAR-format request/response payloads and appends them to a shared
+  # session archiver so every xAI exchange in a run lands in one HAR file.
   module XaiHarArchiver
     module_function
 
-    def archive(request:, response:, start_time:, end_time:)
-      HarArchiver.archive(
+    def append(archiver:, request:, response:, start_time:, end_time:)
+      archiver.append(
         request_data(request),
         response_data(response),
         start_time,

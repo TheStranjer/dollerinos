@@ -18,8 +18,9 @@ describe Trading::GrokTradeService, 'error handling' do
       def post(*) = raise(JSON::ParserError, 'bad')
 
       def factory
-        lambda { |api_key:|
+        lambda { |api_key:, har_archiver:|
           _ = api_key
+          _ = har_archiver
           self
         }
       end

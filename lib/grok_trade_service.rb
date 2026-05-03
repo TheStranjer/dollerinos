@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'json'
+require_relative 'har_archiver'
 require_relative 'trading/config_validator'
 require_relative 'trading/constants'
 require_relative 'trading/loop_runner'
@@ -89,8 +90,10 @@ module Trading
     end
 
     def build_xai_client
-      factory = @config.xai_client_factory || ->(api_key:) { XaiClient.new(api_key: api_key) }
-      factory.call(api_key: @config.xai_api_key)
+      archiver = HarArchiver.new
+      factory = @config.xai_client_factory ||
+                ->(api_key:, har_archiver:) { XaiClient.new(api_key: api_key, har_archiver: har_archiver) }
+      factory.call(api_key: @config.xai_api_key, har_archiver: archiver)
     end
 
     def initial_input

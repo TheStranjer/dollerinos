@@ -12,15 +12,19 @@ module Trading
     READ_TIMEOUT = 900
     URI_OBJECT = URI(Constants::XAI_RESPONSES_URL)
 
-    def initialize(api_key:)
+    def initialize(api_key:, har_archiver:)
       @api_key = api_key
+      @har_archiver = har_archiver
     end
 
     def post(input:, tools:, tool_choice:)
       request = build_request(input, tools, tool_choice)
       start_time = Time.now
       response = perform(request)
-      XaiHarArchiver.archive(request: request, response: response, start_time: start_time, end_time: Time.now)
+      XaiHarArchiver.append(
+        archiver: @har_archiver, request: request, response: response,
+        start_time: start_time, end_time: Time.now
+      )
       ensure_success(response)
       JSON.parse(response.body)
     end

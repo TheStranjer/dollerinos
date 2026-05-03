@@ -19,8 +19,17 @@ module HarFixtures
     }
   end
 
-  def archive_now
+  def alt_request_data
+    har_request_data.merge(body: '{"test": "second"}')
+  end
+
+  def alt_response_data
+    har_response_data.merge(body: '{"result": "again"}')
+  end
+
+  def archive_now(archiver: Trading::HarArchiver.new)
     start_time = Time.now
-    Trading::HarArchiver.archive(har_request_data, har_response_data, start_time, start_time + 0.5)
+    archiver.append(har_request_data, har_response_data, start_time, start_time + 0.5)
+    archiver.filepath
   end
 end

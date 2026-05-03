@@ -5,28 +5,39 @@ require 'time'
 require 'fileutils'
 
 module Trading
-  # Writes request/response pairs to disk in HTTP Archive (HAR) 1.2 format.
+  # Collects request/response pairs across a single run and persists them to
+  # one HTTP Archive (HAR) 1.2 file. Each appended entry overwrites the file
+  # in place so partial progress survives a crash mid-run.
   class HarArchiver
     HTTP_VERSION = 'HTTP/1.1'
     OUTPUT_TIMINGS = { blocked: -1, dns: -1, connect: -1, send: -1, receive: -1, ssl: -1 }.freeze
 
-    def self.archive(request_data, response_data, start_time, end_time)
-      new.archive(request_data, response_data, start_time, end_time)
+    attr_reader :filepath
+
+    def initialize(filepath: nil)
+      @filepath = filepath || default_filepath
+      @entries = []
     end
 
-    def archive(request_data, response_data, start_time, end_time)
-      har_data = build_har(request_data, response_data, start_time, end_time)
-      filepath = File.expand_path("../output/#{generate_filename}", __dir__)
-      FileUtils.mkdir_p(File.dirname(filepath))
-      File.write(filepath, JSON.pretty_generate(har_data))
-      filepath
+    def append(request_data, response_data, start_time, end_time)
+      @entries << build_entry(request_data, response_data, start_time, end_time)
+      persist
+      @filepath
+    end
+
+    def entry_count
+      @entries.size
     end
 
     private
 
-    def build_har(request_data, response_data, start_time, end_time)
-      entry = build_entry(request_data, response_data, start_time, end_time)
-      { log: { version: '1.2', creator: creator, entries: [entry] } }
+    def persist
+      FileUtils.mkdir_p(File.dirname(@filepath))
+      File.write(@filepath, JSON.pretty_generate(build_har))
+    end
+
+    def build_har
+      { log: { version: '1.2', creator: creator, entries: @entries } }
     end
 
     def creator
@@ -67,6 +78,10 @@ module Trading
 
     def build_content(body_text, content_type)
       { size: body_text.bytesize, compression: 0, mimeType: content_type || 'application/json', text: body_text }
+    end
+
+    def default_filepath
+      File.expand_path("../output/#{generate_filename}", __dir__)
     end
 
     def generate_filename

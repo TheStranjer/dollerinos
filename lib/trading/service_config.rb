@@ -14,6 +14,7 @@ module Trading
     :on_iteration,
     :mcp_client_factory,
     :xai_client_factory,
+    :user_prompt,
     keyword_init: true
   ) do
     def normalized_positions

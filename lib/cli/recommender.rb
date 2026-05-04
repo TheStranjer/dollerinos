@@ -11,9 +11,10 @@ module Cli
   # Orchestrator for the recommender CLI: loads positions, drives the service,
   # and renders the result.
   class Recommender
-    def initialize(liquidity_amount, positions_file: nil)
+    def initialize(liquidity_amount, positions_file: nil, user_prompt: nil)
       @liquidity_amount = liquidity_amount
       @positions_file = positions_file
+      @user_prompt = user_prompt
       @palette = Styles.palette
     end
 
@@ -29,7 +30,8 @@ module Cli
       {
         liquidity_amount: @liquidity_amount,
         positions: load_positions,
-        on_iteration: iteration_display.method(:render)
+        on_iteration: iteration_display.method(:render),
+        user_prompt: @user_prompt
       }
     end
 

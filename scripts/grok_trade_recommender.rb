@@ -2,6 +2,7 @@
 # frozen_string_literal: true
 
 require 'bundler/setup' if File.exist?(File.expand_path('../Gemfile', __dir__))
+require_relative '../lib/cli/prompt_resolver'
 require_relative '../lib/cli/recommender'
 
 USAGE = <<~USAGE.freeze
@@ -30,7 +31,8 @@ def main
   end
 
   amount = parse_amount(ARGV[0])
-  exit(Cli::Recommender.new(amount, positions_file: ARGV[1]).run)
+  user_prompt = Cli::PromptResolver.resolve
+  exit(Cli::Recommender.new(amount, positions_file: ARGV[1], user_prompt: user_prompt).run)
 rescue StandardError => e
   puts "Error: #{e.message}"
   exit(1)

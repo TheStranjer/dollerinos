@@ -52,7 +52,8 @@ module Trading
       max_iterations: MAX_ITERATIONS,
       on_iteration: nil,
       mcp_client_factory: nil,
-      xai_client_factory: nil
+      xai_client_factory: nil,
+      user_prompt: nil
     }.freeze
 
     def default_options
@@ -97,13 +98,22 @@ module Trading
     end
 
     def initial_input
-      [
-        { role: 'system', content: SystemPrompt::BASE },
-        { role: 'user', content: UserPromptBuilder.new(
-          liquidity_amount: @config.normalized_liquidity,
-          positions: @config.normalized_positions
-        ).build }
-      ]
+      messages = [{ role: 'system', content: SystemPrompt::BASE }]
+      custom = custom_user_prompt
+      messages << { role: 'user', content: custom } if custom
+      messages << { role: 'user', content: UserPromptBuilder.new(
+        liquidity_amount: @config.normalized_liquidity,
+        positions: @config.normalized_positions
+      ).build }
+      messages
+    end
+
+    def custom_user_prompt
+      raw = @config.user_prompt
+      return nil if raw.nil?
+
+      stripped = raw.to_s.strip
+      stripped.empty? ? nil : stripped
     end
 
     def success_result(trades, start_time)

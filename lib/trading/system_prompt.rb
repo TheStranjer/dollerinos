@@ -21,11 +21,12 @@ module Trading
       has an opportunity cost. Be explicit in the reasoning when a sell recommendation is driven
       by reallocation rather than expected decline.
 
-      Recommendations are not limited to bullish bets. When you expect a name to fall over the
-      course of the day, you may (and should) recommend buying put options on it via the
-      `#{Constants::FUNCTION_NAME}` schema (type "option", option_type "put", position_type "buy"),
-      with strike, expiration window, and confidence chosen to fit a single-day move. Calls and
-      puts are equally valid recommendations — pick whichever direction matches your thesis.
+      Recommendations are not limited to bullish bets. When the regular session is open and you
+      expect a name to fall over the course of the day, you may (and should) recommend buying
+      put options on it via the `#{Constants::FUNCTION_NAME}` schema (type "option",
+      option_type "put", position_type "buy"), with strike, expiration window, and confidence
+      chosen to fit a single-day move. During the regular session, calls and puts are equally
+      valid recommendations — pick whichever direction matches your thesis.
 
       You are running inside an agentic loop. Each turn you may call any combination of tools
       from Hellthread (#{Constants::HELLTHREAD_LABEL}__*), Unusual Whales
@@ -35,11 +36,24 @@ module Trading
       actionable trade ideas.
     PROMPT
 
-    MARKET_CLOSED_NOTICE = <<~NOTICE.squish.freeze
-      The U.S. stock market is CLOSED today. Therefore the only available choices are
-      "after hours" ones. Limit recommendations to instruments and strategies that can be
-      executed during after-hours trading sessions.
-    NOTICE
+    AFTER_HOURS_DETAIL = <<~DETAIL.squish.freeze
+      The U.S. stock market regular session is CLOSED right now (%<reason>s). The user's
+      broker only supports 24/5 trading of regular stocks and ETFs outside the regular
+      session — options markets, complex multi-leg strategies, and any instrument that
+      requires a live regular-hours quote are NOT executable until the next regular session.
+      Therefore you MUST limit recommendations EXCLUSIVELY to long/short stock and ETF
+      positions that the user can realistically buy or sell during after-hours trading or
+      queue for the next open. Do NOT recommend options (calls, puts, spreads) or any
+      instrument that cannot be filled in the after-hours/overnight window. Ignore the
+      portion of the base instructions that endorses put-option recommendations — those
+      apply only when the regular session is open.
+    DETAIL
+
+    REASON_PHRASES = {
+      'weekend' => 'today is a weekend',
+      'holiday' => 'today is a U.S. market holiday',
+      'after-hours' => 'we are outside regular trading hours — pre-market or after-hours'
+    }.freeze
 
     module_function
 
@@ -50,9 +64,10 @@ module Trading
     end
 
     def market_status_line(now)
-      return nil if MarketCalendar.open?(now)
+      return nil if MarketCalendar.regular_session_open?(now)
 
-      MARKET_CLOSED_NOTICE
+      reason = MarketCalendar.closed_reason(now)
+      format(AFTER_HOURS_DETAIL, reason: REASON_PHRASES.fetch(reason, 'the regular session is closed'))
     end
 
     def progress_line(iteration, max_iterations)

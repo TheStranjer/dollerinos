@@ -9,6 +9,6 @@ describe Trading::SystemPrompt, '.for_iteration on open-market days' do
   it 'omits the market-closed notice on a regular weekday' do
     content = described_class.for_iteration(1, 5, now: weekday)
     expect(content).not_to include('CLOSED')
-    expect(content).not_to include('after hours')
+    expect(content).not_to include('after-hours')
   end
 end

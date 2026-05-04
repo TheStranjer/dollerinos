@@ -12,11 +12,20 @@ CLOSED_DAY_FIXTURES = {
 
 describe Trading::SystemPrompt, '.for_iteration on closed-market days' do
   CLOSED_DAY_FIXTURES.each do |label, now|
-    it "announces the market is closed and limits choices to after-hours on #{label}" do
+    it "announces the market is closed and limits choices to stocks/ETFs on #{label}" do
       content = described_class.for_iteration(1, 5, now: now)
       expect(content).to include('CLOSED')
-      expect(content).to include('"after hours"')
+      expect(content).to include('after-hours')
+      expect(content).to include('stock and ETF')
+      expect(content).to match(/Do NOT recommend options/i)
     end
+  end
+
+  it 'names the closed-market reason in the notice' do
+    content_weekend = described_class.for_iteration(1, 5, now: CLOSED_DAY_FIXTURES['Saturday'])
+    content_holiday = described_class.for_iteration(1, 5, now: CLOSED_DAY_FIXTURES['Christmas Day'])
+    expect(content_weekend).to include('weekend')
+    expect(content_holiday).to include('holiday')
   end
 
   it 'still includes the iteration progress line when the market is closed' do

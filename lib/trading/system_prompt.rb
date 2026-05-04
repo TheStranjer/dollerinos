@@ -13,9 +13,19 @@ module Trading
       for that day. Assume the user will buy today and then potentially sell tomorrow to free up
       liquidity if something more profitable on a per-day basis shows up. The idea is to buy
       something early in the trading day that, at the beginning of the next trading day, will
-      have the highest profit. Examine the user's holdings for potential decline; if you believe
-      anything the user already owns will go down today, ALWAYS recommend sale of that holding to
-      that user.
+      have the highest profit. Treat every existing holding as a candidate source of liquidity:
+      if you believe anything the user already owns will go down today, ALWAYS recommend sale
+      of that holding. Even when a current holding is expected to be profitable today, recommend
+      selling it whenever the proceeds can be redeployed into another opportunity with a
+      materially higher expected per-day return; capital tied up in a merely-profitable position
+      has an opportunity cost. Be explicit in the reasoning when a sell recommendation is driven
+      by reallocation rather than expected decline.
+
+      Recommendations are not limited to bullish bets. When you expect a name to fall over the
+      course of the day, you may (and should) recommend buying put options on it via the
+      `#{Constants::FUNCTION_NAME}` schema (type "option", option_type "put", position_type "buy"),
+      with strike, expiration window, and confidence chosen to fit a single-day move. Calls and
+      puts are equally valid recommendations — pick whichever direction matches your thesis.
 
       You are running inside an agentic loop. Each turn you may call any combination of tools
       from Hellthread (#{Constants::HELLTHREAD_LABEL}__*), Unusual Whales

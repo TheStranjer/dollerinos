@@ -60,7 +60,7 @@ module Trading
     end
 
     def build_request_entry(request_data)
-      body_text = request_data[:body]
+      body_text = utf8_text(request_data[:body])
       {
         method: request_data[:method], url: request_data[:url], httpVersion: HTTP_VERSION,
         headers: redact_headers(request_data[:headers]), queryString: [], cookies: [], headersSize: -1,
@@ -70,13 +70,24 @@ module Trading
     end
 
     def build_response_entry(response_data)
-      body_text = response_data[:body] || ''
+      body_text = utf8_text(response_data[:body]) || ''
       {
         status: response_data[:code], statusText: response_data[:message], httpVersion: HTTP_VERSION,
         headers: redact_headers(response_data[:headers]), cookies: [],
         content: build_content(body_text, response_data[:content_type]),
         redirectURL: '', headersSize: -1, bodySize: body_text.bytesize
       }
+    end
+
+    # Net::HTTP returns response bodies tagged ASCII-8BIT even when they hold
+    # UTF-8 JSON; relabel so JSON.generate doesn't warn (and won't raise once
+    # json 3.0 ships). Invalid bytes get scrubbed rather than aborting a run.
+    def utf8_text(value)
+      return nil if value.nil?
+      return value if value.encoding == Encoding::UTF_8 && value.valid_encoding?
+
+      candidate = value.dup.force_encoding(Encoding::UTF_8)
+      candidate.valid_encoding? ? candidate : candidate.scrub
     end
 
     def redact_headers(headers)

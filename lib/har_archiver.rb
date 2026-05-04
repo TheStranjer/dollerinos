@@ -111,7 +111,11 @@ module Trading
     end
 
     def default_filepath
-      File.expand_path("../output/#{generate_filename}", __dir__)
+      File.join(default_output_dir, generate_filename)
+    end
+
+    def default_output_dir
+      ENV['DOLLERINOS_HAR_OUTPUT_DIR'] || File.expand_path('../output', __dir__)
     end
 
     def generate_filename

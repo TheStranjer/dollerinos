@@ -14,14 +14,13 @@ describe Trading::HarArchiver, 'persistence' do
   end
 
   it 'honors a caller-supplied filepath' do
-    custom = File.expand_path('../../output/custom_session.har', __dir__)
-    File.delete(custom) if File.exist?(custom)
-    instance = Trading::HarArchiver.new(filepath: custom)
-    start_time = Time.now
-    instance.append(har_request_data, har_response_data, start_time, start_time + 0.05)
-    expect(instance.filepath).to eq(custom)
-    expect(File.exist?(custom)).to be true
-  ensure
-    File.delete(custom) if custom && File.exist?(custom)
+    Dir.mktmpdir('dollerinos-spec-har-') do |dir|
+      custom = File.join(dir, 'custom_session.har')
+      instance = Trading::HarArchiver.new(filepath: custom)
+      start_time = Time.now
+      instance.append(har_request_data, har_response_data, start_time, start_time + 0.05)
+      expect(instance.filepath).to eq(custom)
+      expect(File.exist?(custom)).to be true
+    end
   end
 end

@@ -14,9 +14,14 @@ module Trading
       @now = now
     end
 
-    def begin_iteration(max_iterations)
+    def begin_iteration(max_iterations, phase: :gather, unmet_categories: [])
       @iteration += 1
-      @input[0] = { role: 'system', content: SystemPrompt.for_iteration(@iteration, max_iterations, now: @now) }
+      @input[0] = {
+        role: 'system',
+        content: SystemPrompt.for_iteration(
+          @iteration, max_iterations, now: @now, phase: phase, unmet_categories: unmet_categories
+        )
+      }
     end
 
     def append_outputs(output_items)

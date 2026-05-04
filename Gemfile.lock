@@ -68,6 +68,7 @@ GEM
     connection_pool (3.0.2)
     diff-lcs (1.6.2)
     drb (2.2.3)
+    event_stream_parser (1.0.0)
     faraday (2.14.1)
       faraday-net_http (>= 2.0, < 3.5)
       json
@@ -166,6 +167,7 @@ PLATFORMS
 DEPENDENCIES
   activesupport
   charm
+  event_stream_parser (>= 1.0)
   faraday
   mcp (~> 0.14.0)
   rspec
@@ -203,6 +205,7 @@ CHECKSUMS
   connection_pool (3.0.2) sha256=33fff5ba71a12d2aa26cb72b1db8bba2a1a01823559fb01d29eb74c286e62e0a
   diff-lcs (1.6.2) sha256=9ae0d2cba7d4df3075fe8cd8602a8604993efc0dfa934cff568969efb1909962
   drb (2.2.3) sha256=0b00d6fdb50995fe4a45dea13663493c841112e4068656854646f418fda13373
+  event_stream_parser (1.0.0) sha256=a2683bab70126286f8184dc88f7968ffc4028f813161fb073ec90d171f7de3c8
   faraday (2.14.1) sha256=a43cceedc1e39d188f4d2cdd360a8aaa6a11da0c407052e426ba8d3fb42ef61c
   faraday-net_http (3.4.2) sha256=f147758260d3526939bf57ecf911682f94926a3666502e24c69992765875906c
   glamour (0.2.2) sha256=0a0b8a7739de7d5da9064a674522516fba95d8e03d9052740abcbf8a987a974c

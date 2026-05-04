@@ -13,11 +13,11 @@ describe Trading::GrokTradeService, 'last iteration' do
     expect(captured[:tool_choice]).to eq(type: 'function', name: described_class::FUNCTION_NAME)
   end
 
-  it "uses 'auto' tool_choice on non-final iterations" do
+  it "uses 'required' tool_choice during the gather phase" do
     xai = FakeXaiClient.new([{ 'output' => [trade_call(trades: [valid_trade])] }])
 
     build_service(xai_client: xai, max_iterations: 5).call
 
-    expect(xai.calls.first[:tool_choice]).to eq('auto')
+    expect(xai.calls.first[:tool_choice]).to eq('required')
   end
 end

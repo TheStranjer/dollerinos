@@ -5,6 +5,7 @@ require_relative 'iteration_step'
 require_relative 'loop_state'
 require_relative 'mcp_tool_dispatcher'
 require_relative 'output_partition'
+require_relative 'quota_tracker'
 require_relative 'structs'
 require_relative 'tool_call_executor'
 require_relative 'trade_extractor'
@@ -25,6 +26,7 @@ module Trading
       @on_iteration = deps[:on_iteration]
       @state = LoopState.new(initial_input: deps.fetch(:initial_input), now: deps[:now] || Time.now)
       @usage = UsageAccumulator.new
+      @quota_tracker = deps[:quota_tracker] || QuotaTracker.new
     end
 
     def run
@@ -47,10 +49,13 @@ module Trading
     private
 
     def run_iteration
-      @state.begin_iteration(@max_iterations)
-      step = IterationStep.new(iteration: @state.iteration, max_iterations: @max_iterations)
+      step = IterationStep.new(
+        iteration: @state.iteration + 1, max_iterations: @max_iterations, quota_tracker: @quota_tracker
+      )
+      @state.begin_iteration(@max_iterations, phase: step.phase, unmet_categories: @quota_tracker.unmet_categories)
       payload = call_xai(step)
       partition = absorb_payload(payload)
+      @quota_tracker.record_outputs(partition.output_items)
       return finalize_trades(partition) if partition.conclusive?
 
       run_tool_phase(partition)

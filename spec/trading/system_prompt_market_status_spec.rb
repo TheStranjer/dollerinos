@@ -34,7 +34,7 @@ describe Trading::SystemPrompt, '.for_iteration on closed-market days' do
   end
 
   it 'still emits the FINAL directive on the last iteration when the market is closed' do
-    content = described_class.for_iteration(5, 5, now: CLOSED_DAY_FIXTURES['Saturday'])
+    content = described_class.for_iteration(5, 5, now: CLOSED_DAY_FIXTURES['Saturday'], phase: :force_trade_recs)
     expect(content).to include('FINAL iteration')
     expect(content).to include('CLOSED')
   end

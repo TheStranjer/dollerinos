@@ -72,6 +72,17 @@ module GrokTradeFixtures
     }
   end
 
+  def web_search_output(call_id: 'ws_1')
+    { 'type' => 'web_search_call', 'id' => "wsc_#{call_id}", 'call_id' => call_id, 'status' => 'completed' }
+  end
+
+  def x_search_output(name: 'x_keyword_search', call_id: 'xs_1')
+    {
+      'type' => 'custom_tool_call', 'id' => "ctc_#{call_id}", 'call_id' => call_id,
+      'name' => name, 'input' => '{}', 'status' => 'completed'
+    }
+  end
+
   def valid_trade
     {
       'type' => 'stock', 'symbol' => 'AAPL',

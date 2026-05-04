@@ -5,7 +5,9 @@ require_relative 'constants'
 require_relative 'market_calendar'
 
 module Trading
-  # The base system prompt plus per-iteration progress directives.
+  # The phase-aware system prompt. The trade_recommendations finalizer is mentioned
+  # only when the model can actually call it (open / force_trade_recs phases); the
+  # gather-phase prompt frames the turn as "still researching, no determination yet."
   module SystemPrompt
     BASE = <<~PROMPT.squish.freeze
       You are a financial analysis assistant specializing in identifying promising trading
@@ -21,19 +23,10 @@ module Trading
       has an opportunity cost. Be explicit in the reasoning when a sell recommendation is driven
       by reallocation rather than expected decline.
 
-      Recommendations are not limited to bullish bets. When the regular session is open and you
-      expect a name to fall over the course of the day, you may (and should) recommend buying
-      put options on it via the `#{Constants::FUNCTION_NAME}` schema (type "option",
-      option_type "put", position_type "buy"), with strike, expiration window, and confidence
-      chosen to fit a single-day move. During the regular session, calls and puts are equally
-      valid recommendations — pick whichever direction matches your thesis.
-
       You are running inside an agentic loop. Each turn you may call any combination of tools
       from Hellthread (#{Constants::HELLTHREAD_LABEL}__*), Unusual Whales
       (#{Constants::UNUSUAL_WHALES_LABEL}__*), `web_search`, and `x_search` to investigate.
-      Calling multiple tools in one turn counts as a single iteration. Once you have enough
-      information you MUST finish by calling `#{Constants::FUNCTION_NAME}` with an array of
-      actionable trade ideas.
+      Calling multiple tools in one turn counts as a single iteration.
     PROMPT
 
     AFTER_HOURS_DETAIL = <<~DETAIL.squish.freeze
@@ -44,10 +37,17 @@ module Trading
       Therefore you MUST limit recommendations EXCLUSIVELY to long/short stock and ETF
       positions that the user can realistically buy or sell during after-hours trading or
       queue for the next open. Do NOT recommend options (calls, puts, spreads) or any
-      instrument that cannot be filled in the after-hours/overnight window. Ignore the
-      portion of the base instructions that endorses put-option recommendations — those
-      apply only when the regular session is open.
+      instrument that cannot be filled in the after-hours/overnight window.
     DETAIL
+
+    OPTIONS_GUIDANCE = <<~GUIDANCE.squish.freeze
+      Recommendations are not limited to bullish bets. When the regular session is open and
+      you expect a name to fall over the course of the day, you may (and should) recommend
+      buying put options on it via the `#{Constants::FUNCTION_NAME}` schema (type "option",
+      option_type "put", position_type "buy"), with strike, expiration window, and confidence
+      chosen to fit a single-day move. During the regular session, calls and puts are equally
+      valid recommendations — pick whichever direction matches your thesis.
+    GUIDANCE
 
     REASON_PHRASES = {
       'weekend' => 'today is a weekend',
@@ -57,9 +57,9 @@ module Trading
 
     module_function
 
-    def for_iteration(iteration, max_iterations, now: Time.now)
+    def for_iteration(iteration, max_iterations, now: Time.now, phase: :gather, unmet_categories: [])
       sections = [BASE, market_status_line(now), progress_line(iteration, max_iterations),
-                  directive_line(iteration, max_iterations)]
+                  directive_line(phase, unmet_categories)]
       sections.compact.join("\n\n")
     end
 
@@ -75,14 +75,32 @@ module Trading
       "You are at iteration #{iteration}/#{max_iterations} (#{remaining} remaining)."
     end
 
-    def directive_line(iteration, max_iterations)
-      return final_directive if iteration == max_iterations
+    def directive_line(phase, unmet_categories)
+      case phase
+      when :force_trade_recs then final_directive
+      when :gather then gather_directive(unmet_categories)
+      else open_directive
+      end
+    end
 
-      "Call any tools you need this turn, or finalize by calling `#{Constants::FUNCTION_NAME}`."
+    def gather_directive(unmet_categories)
+      list = unmet_categories.empty? ? 'the listed research tools' : unmet_categories.join(', ')
+      'Research phase: you do not yet have enough information to make a determination. ' \
+        "Keep investigating with the available tools — focus on the categories you have not yet exhausted (#{list}). " \
+        'You cannot finalize this turn; do not answer in prose.'
+    end
+
+    def open_directive
+      'Decision-readiness phase: you may finalize now if you are truly confident, but you should ' \
+        'follow every promising lead until you are really sure of your picks. More research is welcome — ' \
+        "only call `#{Constants::FUNCTION_NAME}` once you have no further leads worth chasing. " \
+        "#{OPTIONS_GUIDANCE}"
     end
 
     def final_directive
-      "This is your FINAL iteration. Only `#{Constants::FUNCTION_NAME}` is available; you MUST call it now."
+      'Decision phase: this is your FINAL iteration. It is time to make a decision. ' \
+        "Only `#{Constants::FUNCTION_NAME}` is available; you MUST call it now with your final picks. " \
+        "#{OPTIONS_GUIDANCE}"
     end
   end
 end

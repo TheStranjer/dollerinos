@@ -31,6 +31,8 @@ module Cli
     def render_item(item)
       case item['type']
       when 'function_call' then render_function_call(item)
+      when 'web_search_call' then render_web_search_call(item)
+      when 'custom_tool_call' then render_custom_tool_call(item)
       when 'message' then render_message_item(item)
       when 'reasoning' then render_reasoning_item(item)
       when 'text' then render_text(item['text'].to_s)
@@ -44,6 +46,22 @@ module Cli
     def render_function_call(item)
       puts "  #{@palette[:tool_call].render('🛠  Calling')} #{@palette[:tool_name].render(item['name'].to_s)}"
       pretty_args = format_arguments(item['arguments'].to_s)
+      pretty_args.each_line { |line| puts "      #{line.chomp}" }
+    end
+
+    def render_web_search_call(item)
+      action = item['action'].is_a?(Hash) ? item['action'] : {}
+      label = "🔎 web_search (#{action['type'] || 'search'})"
+      puts "  #{@palette[:tool_call].render('🛠  Calling')} #{@palette[:tool_name].render(label)}"
+      query = action['query'].to_s
+      puts "      query: #{query}" unless query.empty?
+    end
+
+    def render_custom_tool_call(item)
+      label = item['name'].to_s
+      label = 'custom_tool_call' if label.empty?
+      puts "  #{@palette[:tool_call].render('🛠  Calling')} #{@palette[:tool_name].render(label)}"
+      pretty_args = format_arguments(item['input'].to_s)
       pretty_args.each_line { |line| puts "      #{line.chomp}" }
     end
 

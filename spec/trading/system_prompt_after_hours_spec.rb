@@ -45,7 +45,7 @@ describe Trading::SystemPrompt, '.for_iteration FINAL iteration after-hours' do
   let(:after_close) { Time.new(2026, 5, 7, 18, 0, 0, EDT_OFFSET) }
 
   it 'still includes the FINAL directive on the last iteration' do
-    content = described_class.for_iteration(3, 3, now: after_close)
+    content = described_class.for_iteration(3, 3, now: after_close, phase: :force_trade_recs)
     expect(content).to include('FINAL iteration')
     expect(content).to include('CLOSED')
     expect(content).to include('after-hours')

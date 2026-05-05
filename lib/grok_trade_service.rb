@@ -91,7 +91,8 @@ module Trading
     end
 
     def build_xai_client
-      archiver = HarArchiver.new
+      keys = [@config.xai_api_key, @config.hellthread_api_key, @config.unusual_whales_api_key]
+      archiver = HarArchiver.new(sensitive_values: keys)
       factory = @config.xai_client_factory ||
                 ->(api_key:, har_archiver:) { XaiClient.new(api_key: api_key, har_archiver: har_archiver) }
       factory.call(api_key: @config.xai_api_key, har_archiver: archiver)

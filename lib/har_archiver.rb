@@ -3,6 +3,7 @@
 require 'json'
 require 'time'
 require 'fileutils'
+require_relative 'trading/har_redactor'
 
 module Trading
   # Collects request/response pairs across a single run and persists them to
@@ -11,15 +12,13 @@ module Trading
   class HarArchiver
     HTTP_VERSION = 'HTTP/1.1'
     OUTPUT_TIMINGS = { blocked: -1, dns: -1, connect: -1, send: -1, receive: -1, ssl: -1 }.freeze
-    AUTHORIZATION_HEADER = /\Aauthorization\z/i
-    BEARER_AUTHORIZATION = /\ABearer\s+\S+/
-    REDACTED_BEARER = 'Bearer [REDACTED]'
 
     attr_reader :filepath
 
-    def initialize(filepath: nil)
+    def initialize(filepath: nil, sensitive_values: [])
       @filepath = filepath || default_filepath
       @entries = []
+      @redactor = HarRedactor.new(sensitive_values: sensitive_values)
     end
 
     def append(request_data, response_data, start_time, end_time)
@@ -60,20 +59,20 @@ module Trading
     end
 
     def build_request_entry(request_data)
-      body_text = utf8_text(request_data[:body])
+      body_text = @redactor.scrub(utf8_text(request_data[:body]))
       {
-        method: request_data[:method], url: request_data[:url], httpVersion: HTTP_VERSION,
-        headers: redact_headers(request_data[:headers]), queryString: [], cookies: [], headersSize: -1,
+        method: request_data[:method], url: @redactor.scrub(request_data[:url]), httpVersion: HTTP_VERSION,
+        headers: @redactor.headers(request_data[:headers]), queryString: [], cookies: [], headersSize: -1,
         bodySize: body_text ? body_text.bytesize : 0,
         postData: body_text ? { mimeType: 'application/json', text: body_text } : nil
       }
     end
 
     def build_response_entry(response_data)
-      body_text = utf8_text(response_data[:body]) || ''
+      body_text = @redactor.scrub(utf8_text(response_data[:body])) || ''
       {
         status: response_data[:code], statusText: response_data[:message], httpVersion: HTTP_VERSION,
-        headers: redact_headers(response_data[:headers]), cookies: [],
+        headers: @redactor.headers(response_data[:headers]), cookies: [],
         content: build_content(body_text, response_data[:content_type]),
         redirectURL: '', headersSize: -1, bodySize: body_text.bytesize
       }
@@ -88,22 +87,6 @@ module Trading
 
       candidate = value.dup.force_encoding(Encoding::UTF_8)
       candidate.valid_encoding? ? candidate : candidate.scrub
-    end
-
-    def redact_headers(headers)
-      return [] unless headers
-
-      headers.each_with_object([]) do |header, redacted|
-        sanitized = sanitize_header(header)
-        redacted << sanitized if sanitized
-      end
-    end
-
-    def sanitize_header(header)
-      return header unless header[:name].to_s.match?(AUTHORIZATION_HEADER)
-      return nil unless header[:value].to_s.match?(BEARER_AUTHORIZATION)
-
-      header.merge(value: REDACTED_BEARER)
     end
 
     def build_content(body_text, content_type)

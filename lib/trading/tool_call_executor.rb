@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'constants'
+require_relative 'iteration_listener'
 require_relative 'tool_name_codec'
 
 module Trading
@@ -11,9 +12,10 @@ module Trading
     # second apart; we use a small safety margin to stay under the limit.
     ALPHA_VANTAGE_THROTTLE_SECONDS = 1.25
 
-    def initialize(dispatcher:, sleeper: Kernel)
+    def initialize(dispatcher:, sleeper: Kernel, listener: IterationListener::Null.new)
       @dispatcher = dispatcher
       @sleeper = sleeper
+      @listener = listener
       @alpha_vantage_dispatched = false
     end
 
@@ -24,11 +26,14 @@ module Trading
     private
 
     def dispatch_one(function_call, state)
+      @listener.tool_call_started(function_call: function_call)
       throttle_alpha_vantage(function_call)
       result_text = @dispatcher.dispatch(function_call)
       call_id = function_call['call_id'] || function_call['id']
       state.append_function_output(call_id, result_text)
-      result_summary(function_call, call_id, result_text)
+      summary = result_summary(function_call, call_id, result_text)
+      @listener.tool_call_completed(function_call: function_call, result: summary)
+      summary
     end
 
     def throttle_alpha_vantage(function_call)

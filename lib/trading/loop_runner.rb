@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'constants'
+require_relative 'iteration_listener'
 require_relative 'iteration_step'
 require_relative 'loop_state'
 require_relative 'mcp_tool_dispatcher'
@@ -23,7 +24,7 @@ module Trading
       @mcp_clients = deps.fetch(:mcp_clients)
       @mcp_tools_by_label = deps.fetch(:mcp_tools_by_label)
       @max_iterations = deps.fetch(:max_iterations)
-      @on_iteration = deps[:on_iteration]
+      @listener = deps[:on_iteration] || IterationListener::Null.new
       @state = LoopState.new(initial_input: deps.fetch(:initial_input), now: deps[:now] || Time.now)
       @usage = UsageAccumulator.new
       @quota_tracker = deps[:quota_tracker] || QuotaTracker.new
@@ -52,22 +53,28 @@ module Trading
       step = IterationStep.new(
         iteration: @state.iteration + 1, max_iterations: @max_iterations, quota_tracker: @quota_tracker
       )
-      @state.begin_iteration(@max_iterations, phase: step.phase, unmet_categories: @quota_tracker.unmet_categories)
-      payload = call_xai(step)
-      partition = absorb_payload(payload)
+      tools = step.tools(@mcp_tools_by_label)
+      tool_choice = step.tool_choice
+      announce_iteration(step, tools, tool_choice)
+      partition = absorb_payload(call_xai(tools, tool_choice))
       @quota_tracker.record_outputs(partition.output_items)
-      return finalize_trades(partition) if partition.conclusive?
-
-      run_tool_phase(partition)
-      nil
+      @listener.model_output(output_items: partition.output_items)
+      finalize_or_dispatch(partition)
     end
 
-    def call_xai(step)
-      payload = @xai_client.post(
-        input: @state.input,
-        tools: step.tools(@mcp_tools_by_label),
-        tool_choice: step.tool_choice
+    def announce_iteration(step, tools, tool_choice)
+      @state.begin_iteration(@max_iterations, phase: step.phase, unmet_categories: @quota_tracker.unmet_categories)
+      @listener.iteration_started(
+        iteration: @state.iteration,
+        max_iterations: @max_iterations,
+        phase: step.phase,
+        tools: tools,
+        tool_choice: tool_choice
       )
+    end
+
+    def call_xai(tools, tool_choice)
+      payload = @xai_client.post(input: @state.input, tools: tools, tool_choice: tool_choice)
       @usage.add(payload['usage'])
       payload
     end
@@ -78,36 +85,31 @@ module Trading
       OutputPartition.new(output_items)
     end
 
-    def finalize_trades(partition)
-      notify(partition.output_items, [])
-      TradeExtractor.new.extract(partition.trade_call)
+    def finalize_or_dispatch(partition)
+      if partition.conclusive?
+        trades = TradeExtractor.new.extract(partition.trade_call)
+        @listener.iteration_finished(iteration: @state.iteration)
+        return trades
+      end
+
+      run_tool_phase(partition)
+      @listener.iteration_finished(iteration: @state.iteration)
+      nil
     end
 
     def run_tool_phase(partition)
-      tool_results = executor.dispatch_all(partition.other_calls, @state)
-      notify(partition.output_items, tool_results)
+      executor.dispatch_all(partition.other_calls, @state)
       @state.append_user_reminder(REMINDER) if partition.empty_function_calls?
     end
 
     def executor
-      @executor ||= ToolCallExecutor.new(dispatcher: build_dispatcher)
+      @executor ||= ToolCallExecutor.new(dispatcher: build_dispatcher, listener: @listener)
     end
 
     def build_dispatcher
       McpToolDispatcher.new(
         mcp_clients: @mcp_clients,
         mcp_tools_by_label: @mcp_tools_by_label
-      )
-    end
-
-    def notify(output_items, tool_results)
-      return unless @on_iteration
-
-      @on_iteration.call(
-        iteration: @state.iteration,
-        max_iterations: @max_iterations,
-        output_items: output_items,
-        tool_results: tool_results
       )
     end
   end

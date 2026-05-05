@@ -30,7 +30,7 @@ module Cli
       {
         liquidity_amount: @liquidity_amount,
         positions: load_positions,
-        on_iteration: iteration_display.method(:render),
+        on_iteration: iteration_display,
         user_prompt: @user_prompt
       }
     end

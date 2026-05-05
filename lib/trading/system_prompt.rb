@@ -68,9 +68,14 @@ module Trading
     module_function
 
     def for_iteration(iteration, max_iterations, now: Time.now, phase: :gather, unmet_categories: [])
-      sections = [BASE, market_status_line(now), progress_line(iteration, max_iterations),
+      sections = [BASE, current_time_line(now), market_status_line(now),
+                  progress_line(iteration, max_iterations),
                   directive_line(phase, unmet_categories)]
       sections.compact.join("\n\n")
+    end
+
+    def current_time_line(now)
+      "Current time at the start of this run: #{now.strftime('%A, %Y-%m-%d %H:%M:%S %Z (UTC%:z)')}."
     end
 
     def market_status_line(now)

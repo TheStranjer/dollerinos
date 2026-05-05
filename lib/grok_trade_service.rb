@@ -26,6 +26,7 @@ module Trading
     FUNCTION_NAME = Constants::FUNCTION_NAME
     HELLTHREAD_LABEL = Constants::HELLTHREAD_LABEL
     UNUSUAL_WHALES_LABEL = Constants::UNUSUAL_WHALES_LABEL
+    ALPHA_VANTAGE_LABEL = Constants::ALPHA_VANTAGE_LABEL
     TOOL_NAME_SEPARATOR = Constants::TOOL_NAME_SEPARATOR
 
     def initialize(**options)
@@ -47,22 +48,16 @@ module Trading
 
     private
 
-    DEFAULT_OPTIONS = {
-      positions: [],
-      max_iterations: MAX_ITERATIONS,
-      on_iteration: nil,
-      mcp_client_factory: nil,
-      xai_client_factory: nil,
-      user_prompt: nil
-    }.freeze
-
     def default_options
-      DEFAULT_OPTIONS.merge(
+      {
+        positions: [], max_iterations: MAX_ITERATIONS, on_iteration: nil,
+        mcp_client_factory: nil, xai_client_factory: nil, user_prompt: nil,
         now: Time.now,
         xai_api_key: ENV.fetch('XAI_API_KEY', nil),
         hellthread_api_key: ENV.fetch('HELLTHREAD_API_KEY', nil),
-        unusual_whales_api_key: ENV.fetch('UNUSUAL_WHALES_API_KEY', nil)
-      )
+        unusual_whales_api_key: ENV.fetch('UNUSUAL_WHALES_API_KEY', nil),
+        alpha_vantage_api_key: ENV.fetch('ALPHA_VANTAGE_API_KEY', nil)
+      }
     end
 
     def run_with_loop
@@ -91,7 +86,8 @@ module Trading
     end
 
     def build_xai_client
-      keys = [@config.xai_api_key, @config.hellthread_api_key, @config.unusual_whales_api_key]
+      keys = [@config.xai_api_key, @config.hellthread_api_key, @config.unusual_whales_api_key,
+              @config.alpha_vantage_api_key]
       archiver = HarArchiver.new(sensitive_values: keys)
       factory = @config.xai_client_factory ||
                 ->(api_key:, har_archiver:) { XaiClient.new(api_key: api_key, har_archiver: har_archiver) }

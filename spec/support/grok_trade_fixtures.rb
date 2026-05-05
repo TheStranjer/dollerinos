@@ -2,37 +2,17 @@
 
 require 'json'
 require 'mcp'
+require_relative 'mcp_tool_fixtures'
 
 # Test fixtures and a service builder for GrokTradeService specs.
 module GrokTradeFixtures
-  def hellthread_tool
-    @hellthread_tool ||= MCP::Client::Tool.new(
-      name: 'search_4chan',
-      description: 'Search 4chan /biz/',
-      input_schema: { 'type' => 'object', 'properties' => { 'query' => { 'type' => 'string' } } }
-    )
-  end
-
-  def unusual_whales_tool
-    @unusual_whales_tool ||= MCP::Client::Tool.new(
-      name: 'flow_alerts',
-      description: 'Get unusual options flow',
-      input_schema: { 'type' => 'object', 'properties' => { 'ticker' => { 'type' => 'string' } } }
-    )
-  end
-
-  def hellthread_client
-    @hellthread_client ||= instance_double(MCP::Client, tools: [hellthread_tool])
-  end
-
-  def unusual_whales_client
-    @unusual_whales_client ||= instance_double(MCP::Client, tools: [unusual_whales_tool])
-  end
+  include McpToolFixtures
 
   def mcp_factory
-    lambda do |label:, url:, api_key:|
+    lambda do |label:, url:, api_key:, auth: :bearer|
       _ = url
       _ = api_key
+      _ = auth
       label_to_client.fetch(label)
     end
   end
@@ -40,16 +20,9 @@ module GrokTradeFixtures
   def label_to_client
     {
       Trading::Constants::HELLTHREAD_LABEL => hellthread_client,
-      Trading::Constants::UNUSUAL_WHALES_LABEL => unusual_whales_client
+      Trading::Constants::UNUSUAL_WHALES_LABEL => unusual_whales_client,
+      Trading::Constants::ALPHA_VANTAGE_LABEL => alpha_vantage_client
     }
-  end
-
-  def hellthread_tool_full_name
-    "#{Trading::Constants::HELLTHREAD_LABEL}#{Trading::Constants::TOOL_NAME_SEPARATOR}search_4chan"
-  end
-
-  def unusual_whales_tool_full_name
-    "#{Trading::Constants::UNUSUAL_WHALES_LABEL}#{Trading::Constants::TOOL_NAME_SEPARATOR}flow_alerts"
   end
 
   def trade_call(trades:, call_id: 'trade_1')
@@ -104,6 +77,7 @@ module GrokTradeFixtures
     {
       liquidity_amount: 5000, xai_api_key: 'test_key',
       hellthread_api_key: 'ht_key', unusual_whales_api_key: 'uw_key',
+      alpha_vantage_api_key: 'av_key',
       mcp_client_factory: mcp_factory, xai_client_factory: xai_client&.factory
     }
   end

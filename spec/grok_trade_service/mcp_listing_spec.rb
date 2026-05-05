@@ -10,5 +10,6 @@ describe Trading::GrokTradeService, 'MCP tool listing' do
 
     expect(hellthread_client).to have_received(:tools)
     expect(unusual_whales_client).to have_received(:tools)
+    expect(alpha_vantage_client).to have_received(:tools)
   end
 end

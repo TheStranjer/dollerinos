@@ -8,8 +8,12 @@ module Trading
   # Builds the per-server MCP clients used during a trade-recommendation run.
   class McpClientsBuilder
     SERVERS = [
-      [Constants::HELLTHREAD_LABEL, Constants::HELLTHREAD_URL, :hellthread_api_key],
-      [Constants::UNUSUAL_WHALES_LABEL, Constants::UNUSUAL_WHALES_URL, :unusual_whales_api_key]
+      { label: Constants::HELLTHREAD_LABEL, url: Constants::HELLTHREAD_URL,
+        key_method: :hellthread_api_key, auth: :bearer },
+      { label: Constants::UNUSUAL_WHALES_LABEL, url: Constants::UNUSUAL_WHALES_URL,
+        key_method: :unusual_whales_api_key, auth: :bearer },
+      { label: Constants::ALPHA_VANTAGE_LABEL, url: Constants::ALPHA_VANTAGE_URL,
+        key_method: :alpha_vantage_api_key, auth: :query }
     ].freeze
 
     def initialize(config)
@@ -17,13 +21,18 @@ module Trading
     end
 
     def build
-      SERVERS.to_h { |label, url, key_method| [label, build_one(label, url, key_method)] }
+      SERVERS.to_h { |server| [server[:label], build_one(server)] }
     end
 
     private
 
-    def build_one(label, url, key_method)
-      factory.call(label: label, url: url, api_key: @config.public_send(key_method))
+    def build_one(server)
+      factory.call(
+        label: server[:label],
+        url: server[:url],
+        api_key: @config.public_send(server[:key_method]),
+        auth: server[:auth]
+      )
     end
 
     def factory

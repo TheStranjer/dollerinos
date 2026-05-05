@@ -32,5 +32,6 @@ describe Trading::IterationStep, 'phase selection' do
     5.times { tracker.record_outputs([{ 'type' => 'custom_tool_call', 'name' => 'x_search' }]) }
     5.times { tracker.record_outputs([{ 'type' => 'function_call', 'name' => 'hellthread__t' }]) }
     10.times { tracker.record_outputs([{ 'type' => 'function_call', 'name' => 'unusual-whales__t' }]) }
+    5.times { tracker.record_outputs([{ 'type' => 'function_call', 'name' => 'alpha-vantage__t' }]) }
   end
 end

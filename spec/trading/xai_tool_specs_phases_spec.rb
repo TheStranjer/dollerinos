@@ -6,7 +6,8 @@ module XaiToolSpecPhaseHelpers
   def tools_by_label
     {
       Trading::Constants::HELLTHREAD_LABEL => [hellthread_tool],
-      Trading::Constants::UNUSUAL_WHALES_LABEL => [unusual_whales_tool]
+      Trading::Constants::UNUSUAL_WHALES_LABEL => [unusual_whales_tool],
+      Trading::Constants::ALPHA_VANTAGE_LABEL => [alpha_vantage_tool]
     }
   end
 
@@ -15,6 +16,7 @@ module XaiToolSpecPhaseHelpers
     5.times { tracker.record_outputs([{ 'type' => 'custom_tool_call', 'name' => 'x_search' }]) }
     5.times { tracker.record_outputs([{ 'type' => 'function_call', 'name' => 'hellthread__t' }]) }
     10.times { tracker.record_outputs([{ 'type' => 'function_call', 'name' => 'unusual-whales__t' }]) }
+    5.times { tracker.record_outputs([{ 'type' => 'function_call', 'name' => 'alpha-vantage__t' }]) }
   end
 end
 
@@ -58,7 +60,8 @@ describe Trading::XaiToolSpecs, 'open phase' do
 
     expect(types).to include('x_search', 'web_search')
     expect(names).to include(
-      hellthread_tool_full_name, unusual_whales_tool_full_name, Trading::Constants::FUNCTION_NAME
+      hellthread_tool_full_name, unusual_whales_tool_full_name,
+      alpha_vantage_tool_full_name, Trading::Constants::FUNCTION_NAME
     )
   end
 end

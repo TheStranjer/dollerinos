@@ -13,12 +13,14 @@ module Trading
     X_SEARCH = 'x_search'
     HELLTHREAD = Constants::HELLTHREAD_LABEL
     UNUSUAL_WHALES = Constants::UNUSUAL_WHALES_LABEL
+    ALPHA_VANTAGE = Constants::ALPHA_VANTAGE_LABEL
 
     QUOTAS = {
       WEB_SEARCH => 5,
       X_SEARCH => 5,
       HELLTHREAD => 5,
-      UNUSUAL_WHALES => 10
+      UNUSUAL_WHALES => 10,
+      ALPHA_VANTAGE => 5
     }.freeze
 
     CATEGORIES = QUOTAS.keys.freeze

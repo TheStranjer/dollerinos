@@ -10,6 +10,7 @@ module Trading
     :xai_api_key,
     :hellthread_api_key,
     :unusual_whales_api_key,
+    :alpha_vantage_api_key,
     :max_iterations,
     :on_iteration,
     :mcp_client_factory,

@@ -27,6 +27,7 @@ module Trading
       return 'XAI_API_KEY is not configured.' if config.xai_api_key.blank?
       return 'HELLTHREAD_API_KEY is not configured.' if config.hellthread_api_key.blank?
       return 'UNUSUAL_WHALES_API_KEY is not configured.' if config.unusual_whales_api_key.blank?
+      return 'ALPHA_VANTAGE_API_KEY is not configured.' if config.alpha_vantage_api_key.blank?
 
       nil
     end

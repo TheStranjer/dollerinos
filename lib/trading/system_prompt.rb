@@ -25,7 +25,8 @@ module Trading
 
       You are running inside an agentic loop. Each turn you may call any combination of tools
       from Hellthread (#{Constants::HELLTHREAD_LABEL}__*), Unusual Whales
-      (#{Constants::UNUSUAL_WHALES_LABEL}__*), `web_search`, and `x_search` to investigate.
+      (#{Constants::UNUSUAL_WHALES_LABEL}__*), Alpha Vantage (#{Constants::ALPHA_VANTAGE_LABEL}__*),
+      `web_search`, and `x_search` to investigate.
       Calling multiple tools in one turn counts as a single iteration.
     PROMPT
 

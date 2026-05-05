@@ -35,19 +35,21 @@ describe Trading::GrokTradeService, 'open phase iteration' do
   it 'exposes every research tool and trade_recommendations once all quotas are met' do
     allow(hellthread_client).to receive(:call_tool).and_return(text_result('biz'))
     allow(unusual_whales_client).to receive(:call_tool).and_return(text_result('uw'))
+    allow(alpha_vantage_client).to receive(:call_tool).and_return(text_result('av'))
     payloads = [
       { 'output' => Array.new(5) { |i| web_search_output(call_id: "ws_#{i}") } },
       { 'output' => Array.new(5) { |i| x_search_output(call_id: "xs_#{i}") } },
       { 'output' => Array.new(5) { |i| tool_call(name: hellthread_tool_full_name, call_id: "ht_#{i}") } },
       { 'output' => Array.new(10) { |i| tool_call(name: unusual_whales_tool_full_name, call_id: "uw_#{i}") } },
+      { 'output' => Array.new(5) { |i| tool_call(name: alpha_vantage_tool_full_name, call_id: "av_#{i}") } },
       { 'output' => [trade_call(trades: [valid_trade])] }
     ]
     xai = FakeXaiClient.new(payloads)
 
     build_service(xai_client: xai, max_iterations: 10).call
 
-    fifth_tools = xai.calls[4][:tools]
-    expect(function_names(fifth_tools)).to include(described_class::FUNCTION_NAME)
-    expect(types(fifth_tools)).to include('web_search', 'x_search')
+    sixth_tools = xai.calls[5][:tools]
+    expect(function_names(sixth_tools)).to include(described_class::FUNCTION_NAME)
+    expect(types(sixth_tools)).to include('web_search', 'x_search')
   end
 end

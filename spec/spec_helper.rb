@@ -33,4 +33,8 @@ RSpec.configure do |config|
   end
 
   config.shared_context_metadata_behavior = :apply_to_host_groups
+
+  config.before do |example|
+    allow(Kernel).to receive(:sleep) unless example.metadata[:allow_real_sleep]
+  end
 end

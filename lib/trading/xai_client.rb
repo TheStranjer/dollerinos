@@ -16,10 +16,13 @@ module Trading
     MAX_ATTEMPTS = 5
     URI_OBJECT = URI(Constants::XAI_RESPONSES_URL)
     TIMEOUT_ERRORS = [Net::ReadTimeout, Net::OpenTimeout].freeze
+    TIMEOUT_NOTICE_COLOR = "\e[1;33m"
+    TIMEOUT_NOTICE_RESET = "\e[0m"
 
-    def initialize(api_key:, har_archiver:)
+    def initialize(api_key:, har_archiver:, warn_io: $stderr)
       @api_key = api_key
       @har_archiver = har_archiver
+      @warn_io = warn_io
     end
 
     def post(input:, tools:, tool_choice:)
@@ -48,10 +51,18 @@ module Trading
       begin
         attempt += 1
         perform_and_archive(request)
-      rescue *TIMEOUT_ERRORS
+      rescue *TIMEOUT_ERRORS => e
+        notify_timeout(attempt, e)
         retry if attempt < MAX_ATTEMPTS
         raise ServiceError, "xAI did not respond within #{READ_TIMEOUT}s after #{MAX_ATTEMPTS} attempts."
       end
+    end
+
+    def notify_timeout(attempt, error)
+      message = "#{TIMEOUT_NOTICE_COLOR}⚠ xAI attempt #{attempt}/#{MAX_ATTEMPTS} timed out " \
+                "(#{error.class}) after #{READ_TIMEOUT}s#{TIMEOUT_NOTICE_RESET}"
+      @warn_io.puts message
+      @warn_io.flush if @warn_io.respond_to?(:flush)
     end
 
     def perform_and_archive(request)

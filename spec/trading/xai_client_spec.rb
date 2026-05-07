@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'net/http'
+require 'stringio'
 require 'uri'
 require_relative '../../lib/trading/xai_client'
 require_relative '../support/xai_har_fixtures'
@@ -12,8 +13,12 @@ module XaiClientSpecHelpers
     @archiver ||= Trading::HarArchiver.new
   end
 
+  def warn_io
+    @warn_io ||= StringIO.new
+  end
+
   def client
-    @client ||= Trading::XaiClient.new(api_key: 'test-key', har_archiver: archiver)
+    @client ||= Trading::XaiClient.new(api_key: 'test-key', har_archiver: archiver, warn_io: warn_io)
   end
 
   def fake_http
@@ -85,6 +90,49 @@ describe Trading::XaiClient, 'retry on timeout' do
     stub_attempts(error: RuntimeError, fail_first: Float::INFINITY)
     expect { post_call }.to raise_error(RuntimeError)
     expect(@calls).to eq(1)
+  end
+end
+
+describe Trading::XaiClient, 'timeout notifications: count and content' do
+  include XaiClientSpecHelpers
+
+  before { stub_http! }
+
+  it 'prints a notification each time an attempt times out' do
+    stub_attempts(fail_first: 3)
+    post_call
+    expect(warn_io.string.scan(%r{xAI attempt \d+/5 timed out}).size).to eq(3)
+  end
+
+  it 'identifies the attempt number and error class in the notification' do
+    stub_attempts(error: Net::OpenTimeout, fail_first: 2)
+    post_call
+    expect(warn_io.string).to include('xAI attempt 1/5 timed out (Net::OpenTimeout)')
+    expect(warn_io.string).to include('xAI attempt 2/5 timed out (Net::OpenTimeout)')
+  end
+
+  it 'still emits a notification on the final failed attempt before raising' do
+    stub_attempts(fail_first: Float::INFINITY)
+    expect { post_call }.to raise_error(Trading::ServiceError)
+    expect(warn_io.string.scan(%r{xAI attempt \d+/5 timed out}).size).to eq(5)
+  end
+end
+
+describe Trading::XaiClient, 'timeout notifications: formatting' do
+  include XaiClientSpecHelpers
+
+  before { stub_http! }
+
+  it 'wraps each notification in ANSI color escapes' do
+    stub_attempts(fail_first: 1)
+    post_call
+    expect(warn_io.string).to match(%r{\e\[1;33m.*xAI attempt 1/5 timed out.*\e\[0m})
+  end
+
+  it 'does not print any notification when the first attempt succeeds' do
+    allow(fake_http).to receive(:request).and_return(stub_response)
+    post_call
+    expect(warn_io.string).to be_empty
   end
 end
 

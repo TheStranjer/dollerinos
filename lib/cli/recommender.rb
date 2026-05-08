@@ -46,7 +46,9 @@ module Cli
     end
 
     def render_success(result)
-      TradeDisplay.new(@palette).render(result.trades, result.usage, result.duration_ms)
+      TradeDisplay.new(@palette).render(
+        result.trades, result.usage, result.duration_ms, result.sentiment_analyses
+      )
     end
 
     def render_failure(result)

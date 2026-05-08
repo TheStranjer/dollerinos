@@ -53,11 +53,17 @@ module Trading
     end
   end
 
-  Result = Struct.new(:trades, :error_message, :usage, :duration_ms, :iterations, keyword_init: true) do
+  Result = Struct.new(
+    :trades, :error_message, :usage, :duration_ms,
+    :iterations, :reconsideration_iterations, :sentiment_analyses,
+    keyword_init: true
+  ) do
     def success?
       error_message.blank?
     end
   end
+
+  SentimentAnalysis = Struct.new(:trade, :text, keyword_init: true)
 
   ServiceError = Class.new(StandardError)
 end

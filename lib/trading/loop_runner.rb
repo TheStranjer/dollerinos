@@ -19,15 +19,15 @@ module Trading
     REMINDER = 'Please continue: either invoke research tools or finalize by calling ' \
                "#{Constants::FUNCTION_NAME}.".freeze
 
+    attr_reader :state
+
     def initialize(deps)
       @xai_client = deps.fetch(:xai_client)
       @mcp_clients = deps.fetch(:mcp_clients)
       @mcp_tools_by_label = deps.fetch(:mcp_tools_by_label)
       @max_iterations = deps.fetch(:max_iterations)
-      @listener = deps[:on_iteration] || IterationListener::Null.new
       @state = LoopState.new(initial_input: deps.fetch(:initial_input), now: deps[:now] || Time.now)
-      @usage = UsageAccumulator.new
-      @quota_tracker = deps[:quota_tracker] || QuotaTracker.new
+      configure_optional(deps)
     end
 
     def run
@@ -49,22 +49,36 @@ module Trading
 
     private
 
+    def configure_optional(deps)
+      @listener = deps[:on_iteration] || IterationListener::Null.new
+      @usage = deps[:usage_accumulator] || UsageAccumulator.new
+      @quota_tracker = deps[:quota_tracker] || QuotaTracker.new
+      @force_open = deps[:force_open] || false
+      @event_prefix = deps[:event_prefix].to_s
+    end
+
     def run_iteration
-      step = IterationStep.new(
-        iteration: @state.iteration + 1, max_iterations: @max_iterations, quota_tracker: @quota_tracker
-      )
+      step = build_step
       tools = step.tools(@mcp_tools_by_label)
       tool_choice = step.tool_choice
       announce_iteration(step, tools, tool_choice)
       partition = absorb_payload(call_xai(tools, tool_choice))
       @quota_tracker.record_outputs(partition.output_items)
-      @listener.model_output(output_items: partition.output_items)
+      emit(:model_output, output_items: partition.output_items)
       finalize_or_dispatch(partition)
+    end
+
+    def build_step
+      IterationStep.new(
+        iteration: @state.iteration + 1, max_iterations: @max_iterations,
+        quota_tracker: @quota_tracker, force_open: @force_open
+      )
     end
 
     def announce_iteration(step, tools, tool_choice)
       @state.begin_iteration(@max_iterations, phase: step.phase, unmet_categories: @quota_tracker.unmet_categories)
-      @listener.iteration_started(
+      emit(
+        :iteration_started,
         iteration: @state.iteration,
         max_iterations: @max_iterations,
         phase: step.phase,
@@ -88,12 +102,12 @@ module Trading
     def finalize_or_dispatch(partition)
       if partition.conclusive?
         trades = TradeExtractor.new.extract(partition.trade_call)
-        @listener.iteration_finished(iteration: @state.iteration)
+        emit(:iteration_finished, iteration: @state.iteration)
         return trades
       end
 
       run_tool_phase(partition)
-      @listener.iteration_finished(iteration: @state.iteration)
+      emit(:iteration_finished, iteration: @state.iteration)
       nil
     end
 
@@ -103,7 +117,7 @@ module Trading
     end
 
     def executor
-      @executor ||= ToolCallExecutor.new(dispatcher: build_dispatcher, listener: @listener)
+      @executor ||= ToolCallExecutor.new(dispatcher: build_dispatcher, listener: prefixed_listener)
     end
 
     def build_dispatcher
@@ -111,6 +125,17 @@ module Trading
         mcp_clients: @mcp_clients,
         mcp_tools_by_label: @mcp_tools_by_label
       )
+    end
+
+    def emit(event, **payload)
+      method_name = :"#{@event_prefix}#{event}"
+      return unless @listener.respond_to?(method_name)
+
+      @listener.public_send(method_name, **payload)
+    end
+
+    def prefixed_listener
+      IterationListener::Prefixed.new(@listener, prefix: @event_prefix)
     end
   end
 end

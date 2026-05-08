@@ -4,9 +4,10 @@ require 'json'
 require_relative 'har_archiver'
 require_relative 'trading/config_validator'
 require_relative 'trading/constants'
-require_relative 'trading/loop_runner'
+require_relative 'trading/iteration_listener'
 require_relative 'trading/mcp_clients_builder'
 require_relative 'trading/mcp_tool_lister'
+require_relative 'trading/pipeline'
 require_relative 'trading/service_config'
 require_relative 'trading/structs'
 require_relative 'trading/system_prompt'
@@ -15,7 +16,8 @@ require_relative 'trading/xai_client'
 
 module Trading
   # Top-level orchestrator: validates configuration, builds MCP/xAI clients,
-  # runs the agentic loop, and returns a Trading::Result.
+  # runs the three-stage trade pipeline (initial loop → sentiment analysis →
+  # reconsideration loop), and returns a Trading::Result.
   class GrokTradeService
     Position = Trading::Position
     Trade = Trading::Trade
@@ -37,13 +39,13 @@ module Trading
       validation_error = ConfigValidator.new(@config).validate
       return failure(validation_error, 0) if validation_error
 
-      run_with_loop
+      run_with_pipeline
     rescue ServiceError => e
-      failure(e.message, runner_iterations)
+      failure(e.message, pipeline_iterations)
     rescue JSON::ParserError
-      failure('xAI returned invalid JSON.', runner_iterations)
+      failure('xAI returned invalid JSON.', pipeline_iterations)
     rescue StandardError => e
-      failure("Trade recommendation generation failed: #{e.message}", runner_iterations)
+      failure("Trade recommendation generation failed: #{e.message}", pipeline_iterations)
     end
 
     private
@@ -60,12 +62,12 @@ module Trading
       }
     end
 
-    def run_with_loop
+    def run_with_pipeline
       start_time = Time.now
       mcp_tools_by_label = list_mcp_tools
-      @runner = build_runner(mcp_tools_by_label)
-      trades = @runner.run
-      success_result(trades, start_time)
+      @pipeline = build_pipeline(mcp_tools_by_label)
+      outcome = @pipeline.run
+      success_result(outcome, start_time)
     end
 
     def list_mcp_tools
@@ -73,15 +75,11 @@ module Trading
       McpToolLister.new(@mcp_clients).list
     end
 
-    def build_runner(mcp_tools_by_label)
-      LoopRunner.new(
-        xai_client: build_xai_client,
-        mcp_clients: @mcp_clients,
-        mcp_tools_by_label: mcp_tools_by_label,
-        initial_input: initial_input,
-        max_iterations: @config.max_iterations,
-        on_iteration: @config.on_iteration,
-        now: @config.now
+    def build_pipeline(mcp_tools_by_label)
+      Pipeline.new(
+        xai_client: build_xai_client, mcp_clients: @mcp_clients,
+        mcp_tools_by_label: mcp_tools_by_label, max_iterations: @config.max_iterations,
+        initial_input: initial_input, listener: listener, now: @config.now
       )
     end
 
@@ -113,21 +111,29 @@ module Trading
       stripped.empty? ? nil : stripped
     end
 
-    def success_result(trades, start_time)
+    def listener
+      @config.on_iteration || IterationListener::Null.new
+    end
+
+    def success_result(outcome, start_time)
       Result.new(
-        trades: trades,
-        usage: @runner.usage_totals,
+        trades: outcome.final_trades, usage: outcome.usage,
         duration_ms: ((Time.now - start_time) * 1000).round,
-        iterations: @runner.iterations_run
+        iterations: outcome.initial_iterations,
+        reconsideration_iterations: outcome.reconsideration_iterations,
+        sentiment_analyses: outcome.sentiment_analyses
       )
     end
 
-    def runner_iterations
-      @runner&.iterations_run || 0
+    def pipeline_iterations
+      @pipeline&.initial_iterations || 0
     end
 
     def failure(message, iterations)
-      Result.new(trades: [], error_message: message, duration_ms: 0, iterations: iterations)
+      Result.new(
+        trades: [], error_message: message, duration_ms: 0,
+        iterations: iterations, reconsideration_iterations: 0, sentiment_analyses: []
+      )
     end
   end
 end

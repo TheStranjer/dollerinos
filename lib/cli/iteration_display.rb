@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'json'
+require_relative 'extra_phase_display'
 require_relative 'output_item_renderer'
 
 module Cli
@@ -57,6 +58,8 @@ module Cli
     def iteration_finished(**)
       @io.puts
     end
+
+    include ExtraPhaseDisplay
 
     private
 
